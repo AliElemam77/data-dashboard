@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>داشبورد المبيعات والتنفيذ | Sales & Delivery Dashboard</title>
+    <meta name="description" content="منصة متقدمة لإدارة المبيعات، توزيع وإسناد العملاء المحتملين، ومتابعة مشاريع التنفيذ وفريق العمل." />
+    
+    <!-- Google Fonts Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <div id="app">
+      <!-- App Header -->
+      <header class="app-header">
+        <div class="brand">
+          <div class="logo-icon">📊</div>
+          <span>داشبورد المبيعات والتنفيذ</span>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs" id="nav-tabs-container" style="display: none;"></nav>
+
+        <!-- Header Actions & User Info -->
+        <div class="header-meta">
+          <!-- Sync / DB Mode Badge -->
+          <div class="sync-badge" id="sync-status-badge" title="انقر لعرض إعدادات السحابة">
+            <span class="sync-dot"></span>
+            <span id="sync-status-text">تخزين محلي</span>
+          </div>
+
+          <!-- User Info Pill -->
+          <div class="user-pill" id="header-user-info" style="display: none;">
+            <span>👤</span>
+            <span id="user-name-display" style="font-weight: 700;">—</span>
+            <span class="role-tag" id="user-role-badge">—</span>
+          </div>
+
+          <!-- Theme Toggle -->
+          <button class="btn-icon" id="btn-theme-toggle" title="تبديل المظهر النهاري/الليلي">
+            <span id="theme-icon">🌙</span>
+          </button>
+
+          <!-- Logout Button -->
+          <button class="btn-icon" id="btn-logout" title="تسجيل الخروج" style="display: none;">
+            <span>🚪</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- View: Login -->
+      <main class="view-container" id="view-login">
+        <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px;">
+          <div class="modal-card" style="max-width: 440px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <div style="font-size: 40px; margin-bottom: 8px;">🔐</div>
+              <h2 style="font-size: 22px; font-weight: 800;">تسجيل الدخول للمنصة</h2>
+              <p style="font-size: 13.5px; color: var(--text-muted);">
+                اختر نوع الحساب للمتابعة إلى لوحة التحكم
+              </p>
+            </div>
+
+            <!-- Login Tabs -->
+            <div style="display: flex; gap: 6px; background: var(--bg-canvas); padding: 4px; border-radius: var(--radius-md); margin-bottom: 20px; border: 1px solid var(--border-subtle);">
+              <button id="tab-login-admin" class="tab-btn active" style="flex: 1; justify-content: center;">
+                👑 سوبر أدمن
+              </button>
+              <button id="tab-login-team" class="tab-btn" style="flex: 1; justify-content: center;">
+                👥 فريق العمل (سيلز / تنفيذ)
+              </button>
+            </div>
+
+            <!-- Super Admin Login Form -->
+            <div id="form-login-admin">
+              <div class="form-group">
+                <label>كلمة مرور السوبر أدمن:</label>
+                <input id="admin-login-pw" type="password" placeholder="اكتب كلمة المرور..." autocomplete="current-password" />
+              </div>
+              <button id="btn-admin-login" class="btn-primary" style="width: 100%; height: 42px; justify-content: center; font-size: 14px;">
+                🚀 دخول السوبر أدمن وفك تشفير الشيت
+              </button>
+              <div class="msg" id="admin-login-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px;"></div>
+              
+              <div style="margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-canvas); border: 1px solid var(--border-subtle); font-size: 12.5px; line-height: 1.6;">
+                <b style="display: block; margin-bottom: 3px; color: var(--primary);">🔒 أمان وتشفير الشيت (AES-256-GCM):</b>
+                <div>بيانات العملاء (11,149 عميل) مشفرة بالكامل في ملف البيانات ولا يمكن لأي شخص الاطلاع عليها أو استخراجها من الـ DOM إلا بكلمة المرور الصحيحة.</div>
+                <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-subtle);">
+                  🔑 كلمة مرور السوبر أدمن: <code style="background:var(--bg-surface-elevated);padding:2px 8px;border-radius:4px;color:var(--text-main);font-weight:700">admin123</code>
+                </div>
+              </div>
+            </div>
+
+            <!-- Team Member Login Form -->
+            <div id="form-login-team" style="display: none;">
+              <div class="form-group">
+                <label>اسم الدخول (Username):</label>
+                <input id="team-login-user" placeholder="مثال: ahmed" style="direction: ltr;" autocomplete="username" />
+              </div>
+              <div class="form-group">
+                <label>كلمة المرور:</label>
+                <input id="team-login-pw" type="password" placeholder="••••••••" style="direction: ltr;" autocomplete="current-password" />
+              </div>
+              <button id="btn-team-login" class="btn-primary" style="width: 100%; height: 42px; justify-content: center; font-size: 14px;">
+                تسجيل الدخول
+              </button>
+              <div class="msg" id="team-login-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px;"></div>
+
+              <div style="margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-canvas); border: 1px solid var(--border-subtle); font-size: 12.5px; line-height: 1.7;">
+                <b style="display: block; margin-bottom: 4px; color: var(--primary);">👥 حسابات تجريبية جاهزة لتجربة الدخول:</b>
+                <div>• سيلز: اسم الدخول <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">ahmed</code> | كلمة المرور <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">123456</code></div>
+                <div>• سيلز: اسم الدخول <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">sara</code> | كلمة المرور <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">123456</code></div>
+                <div>• تنفيذ: اسم الدخول <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">omar</code> | كلمة المرور <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">123456</code></div>
+                <div style="margin-top:4px;font-size:11.5px;color:var(--text-dim)">(يمكنك أيضاً إنشاء أي مستخدم جديد بكلمة مرور من تبويب "فريق العمل" داخل حساب السوبر أدمن)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- View: Leads (العملاء المحتملين) -->
+      <main class="view-container" id="view-leads">
+        <!-- Main Leads Dashboard Content -->
+        <div id="leads-main-content" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+          <!-- KPIs Banner -->
+          <section class="kpis-banner" id="leads-kpis"></section>
+
+          <!-- Search & Filter Toolbar -->
+          <section class="toolbar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input id="search-leads" type="search" placeholder="بحث بالاسم، الرقم، المدينة، النشاط، الشيت..." autocomplete="off" />
+              <button class="clear-btn" id="clear-search-btn">✕</button>
+            </div>
+
+            <select class="filter-select" id="filter-sheet">
+              <option value="">كل الشيتات</option>
+            </select>
+
+            <select class="filter-select" id="filter-website">
+              <option value="">كل المواقع (ويبسايت)</option>
+              <option value="no_web">بدون موقع (فرصة مبيعات 🔥)</option>
+              <option value="has_web">يوجد موقع إلكتروني 🌐</option>
+            </select>
+
+            <select class="filter-select" id="filter-status">
+              <option value="">كل الحالات</option>
+              <option value="not_sent">لم يتم التواصل بعد (لسه)</option>
+              <option value="sent">تم الإرسال (ماردش)</option>
+              <option value="replied">رد (في مرحلة التفاوض)</option>
+              <option value="joined">تعاقد (دخل معانا)</option>
+            </select>
+
+            <select class="filter-select" id="filter-notes">
+              <option value="">كل الملاحظات</option>
+              <option value="has_notes">يوجد ملاحظات مسجلة 📝</option>
+              <option value="no_notes">بدون ملاحظات</option>
+            </select>
+
+            <select class="filter-select" id="filter-duplicate">
+              <option value="">كل الصفوف</option>
+              <option value="unique">بدون تكرار (أول ظهور)</option>
+              <option value="dup">المكرر فقط</option>
+            </select>
+
+            <select class="filter-select" id="filter-assignee">
+              <option value="">كل المسؤولين</option>
+            </select>
+
+            <select class="filter-select" id="filter-selected">
+              <option value="">الكل</option>
+              <option value="selected">المحدد فقط ✓</option>
+            </select>
+
+            <button class="btn-secondary" id="btn-open-excel-import" title="استيراد شيت إكسيل جديد">
+              📥 استيراد ملف إكسيل / CSV
+            </button>
+
+            <button class="btn-secondary" id="btn-open-bulk-modal" title="توزيع بالعدد">
+              ⚡ توزيع جماعي بالعدد
+            </button>
+
+            <span class="sync-badge" id="leads-count-badge" style="margin-inline-start: auto;">
+              0 صفوف
+            </span>
+          </section>
+
+          <!-- Empty State -->
+          <div id="leads-empty-state" style="display: none; padding: 60px 20px; text-align: center; color: var(--text-muted);">
+            <div style="font-size: 40px; margin-bottom: 12px;">📋</div>
+            <h3 style="font-size: 18px; color: var(--text-main); margin-bottom: 6px;">لا توجد عملاء موكلة إليك حالياً</h3>
+            <p style="font-size: 13.5px;">سيتولى السوبر أدمن إسناد عملاء محددين إليك، وسيظهرون هنا فوراً.</p>
+          </div>
+
+          <!-- Canvas Customer Table (Zero DOM Text Leakage) -->
+          <div class="canvas-table-viewport" id="canvas-table-viewport">
+            <div class="canvas-table-spacer" id="canvas-table-spacer">
+              <canvas id="customer-canvas" class="customer-canvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- View: Clients Delivery (التنفيذ) -->
+      <main class="view-container" id="view-clients" style="padding: 16px 20px; overflow-y: auto;">
+        <div id="clients-content"></div>
+      </main>
+
+      <!-- View: Stats (الإحصائيات) -->
+      <main class="view-container" id="view-stats" style="padding: 16px 20px; overflow-y: auto;">
+        <div id="stats-content"></div>
+      </main>
+
+      <!-- View: Users (إدارة فريق العمل) -->
+      <main class="view-container" id="view-users" style="padding: 16px 20px; overflow-y: auto;">
+        <div id="users-content"></div>
+      </main>
+
+      <!-- View: Settings (الإعدادات والربط السحابي) -->
+      <main class="view-container" id="view-settings" style="padding: 16px 20px; overflow-y: auto;">
+        <div id="settings-content"></div>
+      </main>
+
+      <!-- ================= FLOATING SELECTION DOCK ================= -->
+      <aside class="selection-dock" id="selection-dock">
+        <div class="dock-counter">
+          <span>✓ تم تحديد</span>
+          <span class="count-badge" id="dock-count-number">0</span>
+          <span>عميل</span>
+        </div>
+
+        <select class="filter-select" id="dock-sales-select" style="min-width: 180px;">
+          <option value="">اختر مسؤول المبيعات...</option>
+        </select>
+
+        <button class="btn-primary" id="btn-dock-assign">
+          <span>⚡ إسناد المحددين</span>
+        </button>
+
+        <button class="btn-secondary" id="btn-dock-unassign">
+          <span>إلغاء التعيين</span>
+        </button>
+
+        <button class="btn-secondary" id="btn-dock-clear" style="padding: 8px 10px;" title="إلغاء التحديد">
+          <span>✕</span>
+        </button>
+      </aside>
+
+      <!-- ================= MODALS ================= -->
+
+      <!-- Modal: Confirmation Dialog -->
+      <div class="modal-overlay" id="modal-confirm">
+        <div class="modal-card" style="max-width: 380px; text-align: center;">
+          <div style="font-size: 34px; margin-bottom: 10px;">⚠️</div>
+          <h3 style="justify-content: center;">تأكيد الإجراء</h3>
+          <p id="confirm-msg" style="margin-bottom: 20px;"></p>
+          <div class="modal-actions" style="justify-content: center;">
+            <button class="btn-primary" id="btn-confirm-yes">تأكيد</button>
+            <button class="btn-secondary" id="btn-confirm-no">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Quick Assign Single Lead -->
+      <div class="modal-overlay" id="modal-quick-assign">
+        <div class="modal-card" style="max-width: 400px;">
+          <h3>⚡ تعيين مسؤول المبيعات</h3>
+          <p>
+            تحديد المسؤول عن العميل: <b id="quick-assign-client-name" style="color: var(--primary);"></b>
+          </p>
+          <div class="form-group">
+            <label>اختر مندوب المبيعات:</label>
+            <select id="quick-assign-user-select" class="filter-select" style="width: 100%;"></select>
+          </div>
+          <div class="modal-actions">
+            <button class="btn-primary" id="btn-quick-assign-save">حفظ الإسناد</button>
+            <button class="btn-secondary" id="btn-quick-assign-cancel">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Bulk Assignment by Count -->
+      <div class="modal-overlay" id="modal-bulk-assign">
+        <div class="modal-card" style="max-width: 450px;">
+          <h3>⚡ توزيع العملاء بالعدد</h3>
+          <p>إسناد دفعة محددة بالعدد من نتائج البحث والفلترة الحالية إلى مندوب مبيعات.</p>
+
+          <div class="form-group">
+            <label>مندوب المبيعات المستهدف:</label>
+            <select id="modal-bulk-user" class="filter-select" style="width: 100%;"></select>
+          </div>
+
+          <div class="form-group">
+            <label>العدد المطلوب إسناده (اتركه فارغاً لإسناد كل نتائج الفلترة):</label>
+            <input type="number" id="modal-bulk-count" min="1" placeholder="مثال: 50" style="direction: ltr;" />
+          </div>
+
+          <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="modal-bulk-unassigned-only" class="custom-checkbox" checked />
+            <label for="modal-bulk-unassigned-only" style="margin: 0; cursor: pointer;">
+              استبعاد العملاء المعيّنين مسبقاً (إسناد غير المعيّنين فقط)
+            </label>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-primary" id="btn-bulk-modal-submit">بدء التوزيع</button>
+            <button class="btn-secondary" id="btn-bulk-modal-cancel">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Excel / CSV Import -->
+      <div class="modal-overlay" id="modal-excel-import">
+        <div class="modal-card" style="max-width: 540px;">
+          <h3>📥 استيراد وتحديث ملف الإكسيل</h3>
+          <p>ارفع شيت الإكسيل من جهازك أو الصق رابط شيت أونلاين لإضافته وتوزيعه على فريق المبيعات.</p>
+
+          <!-- Import Method Tabs -->
+          <div style="display: flex; gap: 8px; margin-bottom: 14px; background: var(--bg-canvas); padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <button type="button" id="tab-import-file" class="tab-btn active" style="flex: 1; justify-content: center; font-size: 13px;">
+              📁 رفع ملف من الجهاز
+            </button>
+            <button type="button" id="tab-import-url" class="tab-btn" style="flex: 1; justify-content: center; font-size: 13px;">
+              🔗 ربط برابط شيت أونلاين
+            </button>
+          </div>
+
+          <!-- Section 1: File Dropzone -->
+          <div id="section-import-file">
+            <div id="excel-dropzone" style="border: 2px dashed var(--border-medium); border-radius: var(--radius-lg); padding: 26px 20px; text-align: center; background: var(--bg-canvas); margin-bottom: 14px; cursor: pointer;">
+              <div style="font-size: 36px; margin-bottom: 8px;">📊</div>
+              <b style="display: block; margin-bottom: 6px;">اسحب ملف الإكسيل هنا أو انقر للاختيار</b>
+              <span style="font-size: 12px; color: var(--text-dim);">يدعم ملفات .xlsx و .xls و .csv</span>
+              <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display: none;" />
+            </div>
+          </div>
+
+          <!-- Section 2: Online URL Fetch -->
+          <div id="section-import-url" style="display: none; margin-bottom: 14px;">
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label>رابط الشيت الأونلاين (OneDrive / Google Sheets / مباشر):</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="url" id="excel-url-input" placeholder="https://1drv.ms/... أو رابط Google Sheets" style="direction: ltr; flex: 1;" />
+                <button type="button" class="btn-primary" id="btn-fetch-online-excel" style="flex-shrink: 0; padding: 0 14px;">
+                  🔄 جلب الآن
+                </button>
+              </div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-dim); line-height: 1.6; background: var(--bg-canvas); padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              💡 <b>ملاحظة بخصوص روابط OneDrive:</b> مايكروسوفت تتطلب تسجيل الدخول عند الفتح عبر المتصفح. يمكنك فتح الرابط والضغط على <b>ملف &gt; حفظ باسم &gt; تنزيل نسخة</b> ثم سحب الملف في تبويب "رفع ملف"، أو نشر الشيت عبر Google Sheets للحصول على ربط سحابي مباشر متجدد.
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 16px; margin-bottom: 14px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+              <input type="radio" name="excel-import-mode" id="excel-import-mode-append" checked />
+              <span>إضافة إلى العملاء الحاليين</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+              <input type="radio" name="excel-import-mode" id="excel-import-mode-replace" />
+              <span>استبدال البيانات الحالية بالكامل</span>
+            </label>
+          </div>
+
+          <div id="excel-import-status" style="font-size: 13px; color: var(--text-muted); padding: 10px; background: var(--bg-canvas); border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 16px; min-height: 40px;">
+            اختر ملف إكسيل (.xlsx, .xls, .csv) للبدء في تحليله.
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-primary" id="btn-confirm-excel-import" disabled>
+              تأكيد واستيراد الداتا
+            </button>
+            <button class="btn-secondary" id="btn-excel-import-cancel">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Sales Lead Notes (ملاحظات العميل) -->
+      <div class="modal-overlay" id="modal-lead-notes">
+        <div class="modal-card" style="max-width: 480px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <h3 style="font-size: 17px; display: flex; align-items: center; gap: 8px;">
+              <span>📝</span>
+              <span id="modal-notes-client-name">ملاحظات العميل</span>
+            </h3>
+            <button class="btn-icon" id="btn-close-notes-modal" style="width: 32px; height: 32px;">✕</button>
+          </div>
+          
+          <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; padding: 8px 12px; background: var(--bg-canvas); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); display: flex; gap: 14px; flex-wrap: wrap;">
+            <div>🏢 النشاط: <b id="modal-notes-cat" style="color:var(--text-main)">—</b></div>
+            <div>📍 المدينة: <b id="modal-notes-city" style="color:var(--text-main)">—</b></div>
+            <div>📞 الهاتف: <b id="modal-notes-phone" style="direction:ltr;display:inline-block;color:var(--text-main)">—</b></div>
+          </div>
+
+          <div class="form-group">
+            <label>سجل الملاحظات وتفاصيل التواصل:</label>
+            <textarea id="modal-notes-textarea" rows="4" placeholder="اكتب تفاصيل التواصل، متى سيعاود الاتصال، ما تم الاتفاق عليه، العرض المطلوب..." style="width: 100%; padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-medium); background: var(--bg-surface); color: var(--text-main); font-family: inherit; font-size: 13.5px; resize: vertical; outline: none;"></textarea>
+          </div>
+
+          <!-- Quick Tags -->
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;">
+            <button type="button" class="quick-note-tag" data-tag="🔥 مهتم جداً">🔥 مهتم جداً</button>
+            <button type="button" class="quick-note-tag" data-tag="⏰ مطلوب معاودة الاتصال">⏰ مطلوب معاودة الاتصال</button>
+            <button type="button" class="quick-note-tag" data-tag="📄 طلب عرض سعر">📄 طلب عرض سعر</button>
+            <button type="button" class="quick-note-tag" data-tag="🌐 يريد موقع إلكتروني">🌐 يريد موقع</button>
+            <button type="button" class="quick-note-tag" data-tag="✕ غير مهتم حالياً">✕ غير مهتم حالياً</button>
+          </div>
+
+          <div id="modal-notes-meta" style="font-size: 11.5px; color: var(--text-dim); margin-bottom: 16px; min-height: 18px;"></div>
+
+          <div class="modal-actions">
+            <button class="btn-primary" id="btn-save-lead-notes">💾 حفظ الملاحظة</button>
+            <button class="btn-secondary" id="btn-cancel-lead-notes">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast Notifications Container -->
+      <div id="toast-container"></div>
+    </div>
+
+    <!-- Script Entrypoint -->
+    <script type="module" src="/src/main.js"></script>
+
+    <!-- In-page Tab switcher for login modal and dropzone click -->
+    <script>
+      document.getElementById('tab-login-admin').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('tab-login-team').classList.remove('active');
+        document.getElementById('form-login-admin').style.display = 'block';
+        document.getElementById('form-login-team').style.display = 'none';
+      });
+      document.getElementById('tab-login-team').addEventListener('click', function() {
+        this.classList.add('active');
+        document.getElementById('tab-login-admin').classList.remove('active');
+        document.getElementById('form-login-team').style.display = 'block';
+        document.getElementById('form-login-admin').style.display = 'none';
+      });
+      document.getElementById('excel-dropzone').addEventListener('click', function() {
+        document.getElementById('excel-file-input').click();
+      });
+    </script>
+  </body>
+</html>
