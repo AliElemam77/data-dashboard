@@ -133,12 +133,29 @@ export class CanvasCustomerTable {
     this.handleResize();
   }
 
+  configureColumnsForRole() {
+    // If not owner (e.g. sales rep):
+    // Hide 'select', 'duplicate', 'sheet', 'assignee'
+    const ownerCols = new Set(['select', 'duplicate', 'sheet', 'assignee']);
+    this.columns.forEach(col => {
+      col.hidden = !this.isOwner && ownerCols.has(col.id);
+    });
+  }
+
   updateColumnLayout() {
-    this.totalTableWidth = Math.max(1770, this.viewportWidth || 1770);
-    // In RTL, column 0 (select) starts from the RIGHT edge
+    this.configureColumnsForRole();
+    const visibleCols = this.columns.filter(c => !c.hidden);
+    const sumWidth = visibleCols.reduce((sum, c) => sum + c.width, 0);
+    this.totalTableWidth = Math.max(sumWidth, this.viewportWidth || sumWidth);
+
+    // In RTL, column 0 starts from the RIGHT edge
     let currentRight = this.totalTableWidth;
     for (let ci = 0; ci < this.columns.length; ci++) {
       const col = this.columns[ci];
+      if (col.hidden) {
+        col.x = -9999;
+        continue;
+      }
       currentRight -= col.width;
       col.x = currentRight;
     }
@@ -152,19 +169,19 @@ export class CanvasCustomerTable {
     if (!this.viewport || !this.canvas) return;
     this.dpr = window.devicePixelRatio || 1;
     const curW = this.viewport.clientWidth || window.innerWidth || 1200;
-    const curH = this.viewport.clientHeight || Math.max(500, window.innerHeight - 230);
+    const curH = this.viewport.clientHeight || Math.max(540, window.innerHeight - 200);
     this.viewportWidth = curW;
     this.viewportHeight = curH;
 
     this.updateColumnLayout();
 
-    // Size internal canvas buffer by DPR
+    // Size internal canvas buffer by DPR with extra bottom buffer (+ rowHeight * 2) so last item is never clipped
     this.canvas.width = Math.max(1, Math.floor(this.totalTableWidth * this.dpr));
-    this.canvas.height = Math.max(1, Math.floor(this.viewportHeight * this.dpr));
+    this.canvas.height = Math.max(1, Math.floor((this.viewportHeight + this.rowHeight * 2) * this.dpr));
 
     // Size CSS layout
     this.canvas.style.width = `${this.totalTableWidth}px`;
-    this.canvas.style.height = `${this.viewportHeight}px`;
+    this.canvas.style.height = `${this.viewportHeight + this.rowHeight * 2}px`;
 
     this.scheduleRender();
   }
@@ -184,8 +201,11 @@ export class CanvasCustomerTable {
     this.currentUsername = currentUsername || 'admin';
     this.isOwner = !!isOwner;
 
-    // Update total spacer height
-    const totalHeight = this.headerHeight + (this.rows.length * this.rowHeight);
+    this.updateColumnLayout();
+
+    // Update total spacer height with 140px generous bottom clearance so last row is always 100% visible
+    const BOTTOM_CLEARANCE = 140;
+    const totalHeight = this.headerHeight + (this.rows.length * this.rowHeight) + BOTTOM_CLEARANCE;
     if (this.spacer) {
       this.spacer.style.height = `${totalHeight}px`;
     }
@@ -251,7 +271,7 @@ export class CanvasCustomerTable {
     const rowH = this.rowHeight;
 
     const startIdx = Math.max(0, Math.floor(scrollTop / rowH) - 2);
-    const endIdx = Math.min(this.rows.length, Math.ceil((scrollTop + h) / rowH) + 2);
+    const endIdx = Math.min(this.rows.length, Math.ceil((scrollTop + h) / rowH) + 4);
 
     // Draw visible body rows
     for (let k = startIdx; k < endIdx; k++) {
@@ -265,7 +285,7 @@ export class CanvasCustomerTable {
       const isHovered = (this.hoveredRowIdx === k);
 
       const rowY = headerH + (k * rowH) - scrollTop;
-      if (rowY + rowH < headerH || rowY > h) continue;
+      if (rowY + rowH < headerH || rowY > h + rowH * 2) continue;
 
       // Row background
       if (isSelected) {
@@ -286,6 +306,7 @@ export class CanvasCustomerTable {
       // Render cells
       for (let ci = 0; ci < this.columns.length; ci++) {
         const col = this.columns[ci];
+        if (col.hidden) continue;
         this.renderCell(ctx, col, r, st, cid, isSelected, isHovered, col.x, rowY, col.width, rowH, {
           textMain, textMuted, textDim, primary, success, warning, danger, borderSubtle
         });
@@ -667,6 +688,7 @@ export class CanvasCustomerTable {
 
     for (let ci = 0; ci < this.columns.length; ci++) {
       const col = this.columns[ci];
+      if (col.hidden) continue;
       const colX = col.x;
       const colW = col.width;
 
@@ -783,6 +805,7 @@ export class CanvasCustomerTable {
     if (canvasY <= this.headerHeight) {
       for (let ci = 0; ci < this.columns.length; ci++) {
         const col = this.columns[ci];
+        if (col.hidden) continue;
         if (canvasX >= col.x && canvasX < col.x + col.width) {
           return {
             isHeader: true,
@@ -815,6 +838,7 @@ export class CanvasCustomerTable {
 
     for (let ci = 0; ci < this.columns.length; ci++) {
       const col = this.columns[ci];
+      if (col.hidden) continue;
       if (canvasX >= col.x && canvasX < col.x + col.width) {
         targetCol = col;
         targetColIndex = ci;

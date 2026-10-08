@@ -1,6 +1,7 @@
 import { decryptAll, hpw, mkCred, b2u } from './crypto.js';
 import { db, dbManager } from './storage.js';
 import { CanvasCustomerTable } from './canvasTable.js';
+import { initIcons } from './icons.js';
 import * as XLSX from 'xlsx';
 
 // Global application state
@@ -149,6 +150,7 @@ export async function initApp() {
   setupTheme();
   setupSecurityProtection();
   setupEventListeners();
+  initIcons();
 
   // Initialize storage manager (handles local or firebase)
   await dbManager.init();
@@ -278,10 +280,18 @@ function setupTheme() {
     const t = state.isThemeDark ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('crm_theme', t);
-    $('theme-icon').textContent = state.isThemeDark ? '🌙' : '☀️';
+    const icon = $('theme-icon');
+    if (icon) {
+      icon.setAttribute('data-lucide', state.isThemeDark ? 'moon' : 'sun');
+      initIcons();
+    }
     if (state.canvasTable) state.canvasTable.setTheme(state.isThemeDark);
   };
-  $('theme-icon').textContent = state.isThemeDark ? '🌙' : '☀️';
+  const icon = $('theme-icon');
+  if (icon) {
+    icon.setAttribute('data-lucide', state.isThemeDark ? 'moon' : 'sun');
+    initIcons();
+  }
 }
 
 // ----------------- Authentication & Roles -----------------
@@ -301,6 +311,7 @@ function renderApp() {
     $('nav-tabs-container').style.display = 'none';
     $('header-user-info').style.display = 'none';
     $('btn-logout').style.display = 'none';
+    initIcons();
     return;
   }
 
@@ -323,6 +334,8 @@ function renderApp() {
   else if (state.view === 'stats') renderStatsView();
   else if (state.view === 'users') renderUsersView();
   else if (state.view === 'settings') renderSettingsView();
+
+  initIcons();
 }
 
 function renderTabs() {
@@ -331,16 +344,16 @@ function renderTabs() {
 
   if (state.role === 'owner') {
     tabs.push(
-      { id: 'leads', label: 'العملاء المحتملين', icon: '👥' },
-      { id: 'clients', label: 'التنفيذ والمشاريع', icon: '🚀' },
-      { id: 'stats', label: 'الإحصائيات', icon: '📊' },
-      { id: 'users', label: 'فريق العمل', icon: '👤' },
-      { id: 'settings', label: 'إعدادات السحابة', icon: '⚙️' }
+      { id: 'leads', label: 'العملاء المحتملين', icon: 'users' },
+      { id: 'clients', label: 'التنفيذ والمشاريع', icon: 'briefcase' },
+      { id: 'stats', label: 'الإحصائيات', icon: 'bar-chart-3' },
+      { id: 'users', label: 'فريق العمل', icon: 'user-check' },
+      { id: 'settings', label: 'إعدادات السحابة', icon: 'settings' }
     );
   } else if (state.role === 'sales') {
-    tabs.push({ id: 'leads', label: 'عملاء المبيعات المحتملين', icon: '👥' });
+    tabs.push({ id: 'leads', label: 'عملاء المبيعات المحتملين', icon: 'users' });
   } else if (DEPTS.includes(state.role)) {
-    tabs.push({ id: 'clients', label: 'مشاريع التنفيذ', icon: '🚀' });
+    tabs.push({ id: 'clients', label: 'مشاريع التنفيذ', icon: 'briefcase' });
   }
 
   if (!tabs.some(t => t.id === state.view)) {
@@ -349,10 +362,12 @@ function renderTabs() {
 
   container.innerHTML = tabs.map(t => `
     <button class="tab-btn ${t.id === state.view ? 'active' : ''}" data-tab="${t.id}">
-      <span>${t.icon}</span>
+      <i data-lucide="${t.icon}"></i>
       <span>${t.label}</span>
     </button>
   `).join('');
+
+  initIcons();
 
   container.querySelectorAll('[data-tab]').forEach(btn => {
     btn.onclick = () => {
@@ -413,6 +428,26 @@ function setupAssignmentListener() {
 }
 
 // ----------------- LEADS VIEW & SPECIFIC SELECTION -----------------
+function updateToolbarForRole() {
+  const isOwner = state.role === 'owner';
+  const adminElements = [
+    $('btn-open-excel-import'),
+    $('btn-open-bulk-modal'),
+    $('filter-sheet'),
+    $('filter-duplicate'),
+    $('filter-assignee'),
+    $('filter-selected')
+  ];
+  adminElements.forEach(el => {
+    if (el) el.style.display = isOwner ? '' : 'none';
+  });
+
+  const dock = $('selection-dock');
+  if (dock && !isOwner) {
+    dock.classList.remove('active');
+  }
+}
+
 function renderLeadsView() {
   // If Super Admin has not decrypted the leads yet, display Lock Screen (No leads in DOM)
   if (state.role === 'owner' && !state.D) {
@@ -489,10 +524,12 @@ function renderLeadsView() {
   if (es) es.style.display = 'none';
   if (tv) tv.style.display = 'block';
 
+  updateToolbarForRole();
   populateFilterDropdowns();
   filterLeads();
   renderKPIs();
   renderSelectionDock();
+  initIcons();
   if (state.canvasTable) {
     requestAnimationFrame(() => state.canvasTable.handleResize());
   }
@@ -606,6 +643,30 @@ function filterLeads() {
     }
 
     state.filteredIndices.push(i);
+  }
+
+  // Sort filtered leads by #filter-sort
+  const fsort = $('filter-sort') ? $('filter-sort').value : 'default';
+  if (fsort && fsort !== 'default') {
+    state.filteredIndices.sort((a, b) => {
+      const ra = state.S[a];
+      const rb = state.S[b];
+      if (fsort === 'name_asc') return (ra[3] || '').localeCompare(rb[3] || '', 'ar');
+      if (fsort === 'name_desc') return (rb[3] || '').localeCompare(ra[3] || '', 'ar');
+      if (fsort === 'category') return (ra[4] || '').localeCompare(rb[4] || '', 'ar');
+      if (fsort === 'city') return (ra[5] || '').localeCompare(rb[5] || '', 'ar');
+      if (fsort === 'no_web_first') {
+        const aNoWeb = !ra[12] ? 1 : 0;
+        const bNoWeb = !rb[12] ? 1 : 0;
+        return bNoWeb - aNoWeb;
+      }
+      if (fsort === 'has_notes_first') {
+        const aNotes = state.L.get(ra[0])?.notes ? 1 : 0;
+        const bNotes = state.L.get(rb[0])?.notes ? 1 : 0;
+        return bNotes - aNotes;
+      }
+      return 0;
+    });
   }
 
   $('leads-count-badge').textContent = `${state.filteredIndices.length.toLocaleString('en')} صفوف`;
@@ -851,6 +912,7 @@ function openNotesModal(cid, r) {
   const modal = $('modal-lead-notes');
   if (modal) {
     modal.classList.add('active');
+    initIcons();
     setTimeout(() => {
       if (textarea) textarea.focus();
     }, 50);
@@ -1977,6 +2039,7 @@ function setupEventListeners() {
     $('search-leads').value = '';
     filterLeads();
   };
+  if ($('filter-sort')) $('filter-sort').onchange = filterLeads;
   $('filter-sheet').onchange = filterLeads;
   if ($('filter-website')) $('filter-website').onchange = filterLeads;
   $('filter-status').onchange = filterLeads;
@@ -2010,6 +2073,7 @@ function setupEventListeners() {
   // Bulk Modal Triggers
   $('btn-open-bulk-modal').onclick = () => {
     $('modal-bulk-assign').classList.add('active');
+    initIcons();
   };
   $('btn-bulk-modal-cancel').onclick = () => {
     $('modal-bulk-assign').classList.remove('active');
@@ -2022,6 +2086,7 @@ function setupEventListeners() {
     $('excel-import-status').textContent = 'اختر ملف إكسيل (.xlsx, .xls, .csv) للبدء في تحليله.';
     $('excel-import-status').style.color = 'var(--text-muted)';
     $('btn-confirm-excel-import').disabled = true;
+    initIcons();
   };
   $('btn-excel-import-cancel').onclick = () => {
     $('modal-excel-import').classList.remove('active');

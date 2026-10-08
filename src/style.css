@@ -443,6 +443,10 @@ input, select, textarea {
   cursor: pointer;
   transition: var(--transition);
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 .btn-primary:hover {
   background: var(--primary-hover);
@@ -451,7 +455,8 @@ input, select, textarea {
 .btn-secondary {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 7px;
   padding: 8px 14px;
   border-radius: var(--radius-md);
   background: var(--bg-surface);
@@ -470,7 +475,8 @@ input, select, textarea {
 .btn-danger {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 7px;
   padding: 8px 14px;
   border-radius: var(--radius-md);
   background: var(--danger-soft);
@@ -487,6 +493,16 @@ input, select, textarea {
   color: white;
 }
 
+/* React/Lucide SVG Vector Icons */
+.lucide-icon {
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.8;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 /* Leads Canvas Table (Zero DOM Text Leakage) */
 .canvas-table-viewport {
   flex: 1;
@@ -498,7 +514,8 @@ input, select, textarea {
   -webkit-user-select: none !important;
   user-select: none !important;
   outline: none;
-  min-height: 480px;
+  min-height: 560px;
+  padding-bottom: 24px;
 }
 
 .canvas-table-spacer {

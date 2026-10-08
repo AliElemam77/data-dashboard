@@ -15,7 +15,7 @@
       <!-- App Header -->
       <header class="app-header">
         <div class="brand">
-          <div class="logo-icon">📊</div>
+          <div class="logo-icon"><i data-lucide="layout-dashboard"></i></div>
           <span>داشبورد المبيعات والتنفيذ</span>
         </div>
 
@@ -32,19 +32,19 @@
 
           <!-- User Info Pill -->
           <div class="user-pill" id="header-user-info" style="display: none;">
-            <span>👤</span>
+            <i data-lucide="user"></i>
             <span id="user-name-display" style="font-weight: 700;">—</span>
             <span class="role-tag" id="user-role-badge">—</span>
           </div>
 
           <!-- Theme Toggle -->
           <button class="btn-icon" id="btn-theme-toggle" title="تبديل المظهر النهاري/الليلي">
-            <span id="theme-icon">🌙</span>
+            <i data-lucide="moon" id="theme-icon"></i>
           </button>
 
           <!-- Logout Button -->
           <button class="btn-icon" id="btn-logout" title="تسجيل الخروج" style="display: none;">
-            <span>🚪</span>
+            <i data-lucide="log-out"></i>
           </button>
         </div>
       </header>
@@ -54,7 +54,11 @@
         <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px;">
           <div class="modal-card" style="max-width: 440px;">
             <div style="text-align: center; margin-bottom: 20px;">
-              <div style="font-size: 40px; margin-bottom: 8px;">🔐</div>
+              <div style="display: flex; justify-content: center; margin-bottom: 10px;">
+                <div style="width: 52px; height: 52px; border-radius: 12px; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                  <i data-lucide="shield-check" style="width: 28px; height: 28px;"></i>
+                </div>
+              </div>
               <h2 style="font-size: 22px; font-weight: 800;">تسجيل الدخول للمنصة</h2>
               <p style="font-size: 13.5px; color: var(--text-muted);">
                 اختر نوع الحساب للمتابعة إلى لوحة التحكم
@@ -64,10 +68,12 @@
             <!-- Login Tabs -->
             <div style="display: flex; gap: 6px; background: var(--bg-canvas); padding: 4px; border-radius: var(--radius-md); margin-bottom: 20px; border: 1px solid var(--border-subtle);">
               <button id="tab-login-admin" class="tab-btn active" style="flex: 1; justify-content: center;">
-                👑 سوبر أدمن
+                <i data-lucide="key-round"></i>
+                <span>سوبر أدمن</span>
               </button>
               <button id="tab-login-team" class="tab-btn" style="flex: 1; justify-content: center;">
-                👥 فريق العمل (سيلز / تنفيذ)
+                <i data-lucide="users"></i>
+                <span>فريق العمل</span>
               </button>
             </div>
 
@@ -78,16 +84,14 @@
                 <input id="admin-login-pw" type="password" placeholder="اكتب كلمة المرور..." autocomplete="current-password" />
               </div>
               <button id="btn-admin-login" class="btn-primary" style="width: 100%; height: 42px; justify-content: center; font-size: 14px;">
-                🚀 دخول السوبر أدمن وفك تشفير الشيت
+                <i data-lucide="lock"></i>
+                <span>دخول وفك تشفير البيانات</span>
               </button>
               <div class="msg" id="admin-login-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px;"></div>
               
               <div style="margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-canvas); border: 1px solid var(--border-subtle); font-size: 12.5px; line-height: 1.6;">
                 <b style="display: block; margin-bottom: 3px; color: var(--primary);">🔒 أمان وتشفير الشيت (AES-256-GCM):</b>
-                <div>بيانات العملاء (11,149 عميل) مشفرة بالكامل في ملف البيانات ولا يمكن لأي شخص الاطلاع عليها أو استخراجها من الـ DOM إلا بكلمة المرور الصحيحة.</div>
-                <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-subtle);">
-                  🔑 كلمة مرور السوبر أدمن: <code style="background:var(--bg-surface-elevated);padding:2px 8px;border-radius:4px;color:var(--text-main);font-weight:700">admin123</code>
-                </div>
+                <div>بيانات العملاء مشفرة بالكامل ولا يمكن لأي شخص الاطلاع عليها أو استخراجها من المتصفح إلا بكلمة المرور المعتمدة.</div>
               </div>
             </div>
 
@@ -102,17 +106,10 @@
                 <input id="team-login-pw" type="password" placeholder="••••••••" style="direction: ltr;" autocomplete="current-password" />
               </div>
               <button id="btn-team-login" class="btn-primary" style="width: 100%; height: 42px; justify-content: center; font-size: 14px;">
-                تسجيل الدخول
+                <i data-lucide="user-check"></i>
+                <span>تسجيل الدخول</span>
               </button>
               <div class="msg" id="team-login-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px;"></div>
-
-              <div style="margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-canvas); border: 1px solid var(--border-subtle); font-size: 12.5px; line-height: 1.7;">
-                <b style="display: block; margin-bottom: 4px; color: var(--primary);">👥 حسابات تجريبية جاهزة لتجربة الدخول:</b>
-                <div>• سيلز: اسم الدخول <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">ahmed</code> | كلمة المرور <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">123456</code></div>
-                <div>• سيلز: اسم الدخول <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">sara</code> | كلمة المرور <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">123456</code></div>
-                <div>• تنفيذ: اسم الدخول <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">omar</code> | كلمة المرور <code style="background:var(--bg-surface-elevated);padding:1px 5px;border-radius:4px">123456</code></div>
-                <div style="margin-top:4px;font-size:11.5px;color:var(--text-dim)">(يمكنك أيضاً إنشاء أي مستخدم جديد بكلمة مرور من تبويب "فريق العمل" داخل حساب السوبر أدمن)</div>
-              </div>
             </div>
           </div>
         </div>
@@ -128,10 +125,20 @@
           <!-- Search & Filter Toolbar -->
           <section class="toolbar">
             <div class="search-box">
-              <span class="search-icon">🔍</span>
+              <span class="search-icon"><i data-lucide="search"></i></span>
               <input id="search-leads" type="search" placeholder="بحث بالاسم، الرقم، المدينة، النشاط، الشيت..." autocomplete="off" />
-              <button class="clear-btn" id="clear-search-btn">✕</button>
+              <button class="clear-btn" id="clear-search-btn"><i data-lucide="x"></i></button>
             </div>
+
+            <select class="filter-select" id="filter-sort" title="ترتيب النتائج">
+              <option value="default">ترتيب: الافتراضي</option>
+              <option value="name_asc">ترتيب: الاسم (أ - ي)</option>
+              <option value="name_desc">ترتيب: الاسم (ي - أ)</option>
+              <option value="category">ترتيب: حسب النشاط</option>
+              <option value="city">ترتيب: حسب المدينة</option>
+              <option value="no_web_first">ترتيب: بدون موقع أولاً (فرص مبيعات 🔥)</option>
+              <option value="has_notes_first">ترتيب: بالملاحظات أولاً</option>
+            </select>
 
             <select class="filter-select" id="filter-sheet">
               <option value="">كل الشيتات</option>
@@ -140,7 +147,7 @@
             <select class="filter-select" id="filter-website">
               <option value="">كل المواقع (ويبسايت)</option>
               <option value="no_web">بدون موقع (فرصة مبيعات 🔥)</option>
-              <option value="has_web">يوجد موقع إلكتروني 🌐</option>
+              <option value="has_web">يوجد موقع إلكتروني</option>
             </select>
 
             <select class="filter-select" id="filter-status">
@@ -153,7 +160,7 @@
 
             <select class="filter-select" id="filter-notes">
               <option value="">كل الملاحظات</option>
-              <option value="has_notes">يوجد ملاحظات مسجلة 📝</option>
+              <option value="has_notes">يوجد ملاحظات مسجلة</option>
               <option value="no_notes">بدون ملاحظات</option>
             </select>
 
@@ -169,15 +176,17 @@
 
             <select class="filter-select" id="filter-selected">
               <option value="">الكل</option>
-              <option value="selected">المحدد فقط ✓</option>
+              <option value="selected">المحدد فقط</option>
             </select>
 
             <button class="btn-secondary" id="btn-open-excel-import" title="استيراد شيت إكسيل جديد">
-              📥 استيراد ملف إكسيل / CSV
+              <i data-lucide="file-spreadsheet"></i>
+              <span>استيراد ملف إكسيل / CSV</span>
             </button>
 
             <button class="btn-secondary" id="btn-open-bulk-modal" title="توزيع بالعدد">
-              ⚡ توزيع جماعي بالعدد
+              <i data-lucide="zap"></i>
+              <span>توزيع جماعي بالعدد</span>
             </button>
 
             <span class="sync-badge" id="leads-count-badge" style="margin-inline-start: auto;">
@@ -224,7 +233,8 @@
       <!-- ================= FLOATING SELECTION DOCK ================= -->
       <aside class="selection-dock" id="selection-dock">
         <div class="dock-counter">
-          <span>✓ تم تحديد</span>
+          <i data-lucide="check"></i>
+          <span>تم تحديد</span>
           <span class="count-badge" id="dock-count-number">0</span>
           <span>عميل</span>
         </div>
@@ -234,15 +244,17 @@
         </select>
 
         <button class="btn-primary" id="btn-dock-assign">
-          <span>⚡ إسناد المحددين</span>
+          <i data-lucide="user-check"></i>
+          <span>إسناد المحددين</span>
         </button>
 
         <button class="btn-secondary" id="btn-dock-unassign">
+          <i data-lucide="x"></i>
           <span>إلغاء التعيين</span>
         </button>
 
         <button class="btn-secondary" id="btn-dock-clear" style="padding: 8px 10px;" title="إلغاء التحديد">
-          <span>✕</span>
+          <i data-lucide="x"></i>
         </button>
       </aside>
 
@@ -251,7 +263,9 @@
       <!-- Modal: Confirmation Dialog -->
       <div class="modal-overlay" id="modal-confirm">
         <div class="modal-card" style="max-width: 380px; text-align: center;">
-          <div style="font-size: 34px; margin-bottom: 10px;">⚠️</div>
+          <div style="display: flex; justify-content: center; margin-bottom: 10px;">
+            <i data-lucide="alert-circle" style="width: 36px; height: 36px; color: var(--warning);"></i>
+          </div>
           <h3 style="justify-content: center;">تأكيد الإجراء</h3>
           <p id="confirm-msg" style="margin-bottom: 20px;"></p>
           <div class="modal-actions" style="justify-content: center;">
@@ -264,7 +278,7 @@
       <!-- Modal: Quick Assign Single Lead -->
       <div class="modal-overlay" id="modal-quick-assign">
         <div class="modal-card" style="max-width: 400px;">
-          <h3>⚡ تعيين مسؤول المبيعات</h3>
+          <h3><i data-lucide="user-check"></i> <span>تعيين مسؤول المبيعات</span></h3>
           <p>
             تحديد المسؤول عن العميل: <b id="quick-assign-client-name" style="color: var(--primary);"></b>
           </p>
@@ -282,7 +296,7 @@
       <!-- Modal: Bulk Assignment by Count -->
       <div class="modal-overlay" id="modal-bulk-assign">
         <div class="modal-card" style="max-width: 450px;">
-          <h3>⚡ توزيع العملاء بالعدد</h3>
+          <h3><i data-lucide="zap"></i> <span>توزيع العملاء بالعدد</span></h3>
           <p>إسناد دفعة محددة بالعدد من نتائج البحث والفلترة الحالية إلى مندوب مبيعات.</p>
 
           <div class="form-group">
@@ -312,23 +326,27 @@
       <!-- Modal: Excel / CSV Import -->
       <div class="modal-overlay" id="modal-excel-import">
         <div class="modal-card" style="max-width: 540px;">
-          <h3>📥 استيراد وتحديث ملف الإكسيل</h3>
+          <h3><i data-lucide="file-spreadsheet"></i> <span>استيراد وتحديث ملف الإكسيل</span></h3>
           <p>ارفع شيت الإكسيل من جهازك أو الصق رابط شيت أونلاين لإضافته وتوزيعه على فريق المبيعات.</p>
 
           <!-- Import Method Tabs -->
           <div style="display: flex; gap: 8px; margin-bottom: 14px; background: var(--bg-canvas); padding: 4px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
             <button type="button" id="tab-import-file" class="tab-btn active" style="flex: 1; justify-content: center; font-size: 13px;">
-              📁 رفع ملف من الجهاز
+              <i data-lucide="upload"></i>
+              <span>رفع ملف من الجهاز</span>
             </button>
             <button type="button" id="tab-import-url" class="tab-btn" style="flex: 1; justify-content: center; font-size: 13px;">
-              🔗 ربط برابط شيت أونلاين
+              <i data-lucide="globe"></i>
+              <span>ربط برابط شيت أونلاين</span>
             </button>
           </div>
 
           <!-- Section 1: File Dropzone -->
           <div id="section-import-file">
             <div id="excel-dropzone" style="border: 2px dashed var(--border-medium); border-radius: var(--radius-lg); padding: 26px 20px; text-align: center; background: var(--bg-canvas); margin-bottom: 14px; cursor: pointer;">
-              <div style="font-size: 36px; margin-bottom: 8px;">📊</div>
+              <div style="display: flex; justify-content: center; margin-bottom: 8px;">
+                <i data-lucide="upload" style="width: 38px; height: 38px; color: var(--primary);"></i>
+              </div>
               <b style="display: block; margin-bottom: 6px;">اسحب ملف الإكسيل هنا أو انقر للاختيار</b>
               <span style="font-size: 12px; color: var(--text-dim);">يدعم ملفات .xlsx و .xls و .csv</span>
               <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" style="display: none;" />
@@ -342,7 +360,8 @@
               <div style="display: flex; gap: 8px;">
                 <input type="url" id="excel-url-input" placeholder="https://1drv.ms/... أو رابط Google Sheets" style="direction: ltr; flex: 1;" />
                 <button type="button" class="btn-primary" id="btn-fetch-online-excel" style="flex-shrink: 0; padding: 0 14px;">
-                  🔄 جلب الآن
+                  <i data-lucide="refresh-cw"></i>
+                  <span>جلب الآن</span>
                 </button>
               </div>
             </div>
@@ -368,7 +387,8 @@
 
           <div class="modal-actions">
             <button class="btn-primary" id="btn-confirm-excel-import" disabled>
-              تأكيد واستيراد الداتا
+              <i data-lucide="check"></i>
+              <span>تأكيد واستيراد الداتا</span>
             </button>
             <button class="btn-secondary" id="btn-excel-import-cancel">إلغاء</button>
           </div>
@@ -380,10 +400,10 @@
         <div class="modal-card" style="max-width: 480px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
             <h3 style="font-size: 17px; display: flex; align-items: center; gap: 8px;">
-              <span>📝</span>
+              <i data-lucide="message-square"></i>
               <span id="modal-notes-client-name">ملاحظات العميل</span>
             </h3>
-            <button class="btn-icon" id="btn-close-notes-modal" style="width: 32px; height: 32px;">✕</button>
+            <button class="btn-icon" id="btn-close-notes-modal" style="width: 32px; height: 32px;"><i data-lucide="x"></i></button>
           </div>
           
           <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; padding: 8px 12px; background: var(--bg-canvas); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); display: flex; gap: 14px; flex-wrap: wrap;">
@@ -409,7 +429,7 @@
           <div id="modal-notes-meta" style="font-size: 11.5px; color: var(--text-dim); margin-bottom: 16px; min-height: 18px;"></div>
 
           <div class="modal-actions">
-            <button class="btn-primary" id="btn-save-lead-notes">💾 حفظ الملاحظة</button>
+            <button class="btn-primary" id="btn-save-lead-notes"><i data-lucide="check"></i> <span>حفظ الملاحظة</span></button>
             <button class="btn-secondary" id="btn-cancel-lead-notes">إلغاء</button>
           </div>
         </div>
