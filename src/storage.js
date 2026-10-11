@@ -5,6 +5,8 @@
  * 2. Local Mode: High-performance IndexedDB/LocalStorage with BroadcastChannel cross-tab live sync
  */
 
+import { getSupabaseClient, getSupabaseConfig } from './supabase.js';
+
 const STORAGE_KEY_PREFIX = 'sales_crm_';
 const BROADCAST_CHANNEL = 'sales_crm_channel';
 
@@ -27,6 +29,120 @@ class LocalDatabase {
           this._notify(col);
         }
       });
+    }
+
+    if (typeof fetch !== 'undefined') {
+      fetch('/api/storage/clients')
+        .then(r => r.ok ? r.json() : null)
+        .then(remote => {
+          if (remote && typeof remote === 'object' && Object.keys(remote).length > 0) {
+            const local = this._getColData('clients');
+            const merged = { ...remote, ...local };
+            this._setColData('clients', merged);
+          } else {
+            const local = this._getColData('clients');
+            if (Object.keys(local).length > 0) {
+              fetch('/api/storage/clients', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(local)
+              }).catch(() => {});
+            }
+          }
+        }).catch(() => {});
+    }
+
+    // Connect to Supabase Realtime if configured
+    this._initSupabaseSync();
+  }
+
+  _initSupabaseSync() {
+    try {
+      const sb = getSupabaseClient();
+      if (!sb) return;
+
+      // 1. Initial Pull from Supabase
+      sb.from('clients').select('*').then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const local = this._getColData('clients');
+          let modified = false;
+          data.forEach(row => {
+            local[row.id] = {
+              ...(local[row.id] || {}),
+              name: row.name || '',
+              cat: row.cat || '',
+              city: row.city || '',
+              phone: row.phone || '',
+              wa: row.wa || '',
+              site: row.site || '',
+              ig: row.ig || '',
+              plat: row.plat || '',
+              by: row.by || '',
+              at: row.at || Date.now(),
+              portalActive: row.portal_active ?? true,
+              portalUsername: row.portal_username || '',
+              portalPassword: row.portal_password || '',
+              seo: row.seo || 0,
+              media: row.media || 0,
+              social: row.social || 0,
+              dev: row.dev || 0,
+              ui: row.ui || 0,
+              deptDetails: row.dept_details || {},
+              clientNote: row.client_note || '',
+              expectedDelivery: row.expected_delivery || ''
+            };
+            modified = true;
+          });
+          if (modified) {
+            this.memStore.set('clients', local);
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem(STORAGE_KEY_PREFIX + 'clients', JSON.stringify(local));
+            }
+            this._notify('clients');
+          }
+        }
+      }).catch(err => console.warn('Supabase initial pull error:', err));
+
+      // 2. Realtime Subscription
+      sb.channel('crm_clients_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, (payload) => {
+          if (payload.new && payload.new.id) {
+            const row = payload.new;
+            const local = this._getColData('clients');
+            local[row.id] = {
+              ...(local[row.id] || {}),
+              name: row.name || '',
+              cat: row.cat || '',
+              city: row.city || '',
+              phone: row.phone || '',
+              wa: row.wa || '',
+              site: row.site || '',
+              ig: row.ig || '',
+              plat: row.plat || '',
+              by: row.by || '',
+              at: row.at || Date.now(),
+              portalActive: row.portal_active ?? true,
+              portalUsername: row.portal_username || '',
+              portalPassword: row.portal_password || '',
+              seo: row.seo || 0,
+              media: row.media || 0,
+              social: row.social || 0,
+              dev: row.dev || 0,
+              ui: row.ui || 0,
+              deptDetails: row.dept_details || {},
+              clientNote: row.client_note || '',
+              expectedDelivery: row.expected_delivery || ''
+            };
+            this.memStore.set('clients', local);
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem(STORAGE_KEY_PREFIX + 'clients', JSON.stringify(local));
+            }
+            this._notify('clients');
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Error setting up Supabase sync:', e);
     }
   }
 
@@ -52,6 +168,45 @@ class LocalDatabase {
       this._notify(col);
       if (this.bc) {
         this.bc.postMessage({ type: 'change', col });
+      }
+      if (col === 'clients' && typeof fetch !== 'undefined') {
+        fetch('/api/storage/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        }).catch(() => {});
+      }
+      if (col === 'clients') {
+        const sb = getSupabaseClient();
+        if (sb) {
+          const rows = Object.entries(data).map(([id, val]) => ({
+            id,
+            name: val.name || '',
+            cat: val.cat || '',
+            city: val.city || '',
+            phone: val.phone || '',
+            wa: val.wa || '',
+            site: val.site || '',
+            ig: val.ig || '',
+            plat: val.plat || '',
+            by: val.by || '',
+            at: val.at || Date.now(),
+            portal_active: val.portalActive ?? true,
+            portal_username: val.portalUsername || '',
+            portal_password: val.portalPassword || '',
+            seo: val.seo || 0,
+            media: val.media || 0,
+            social: val.social || 0,
+            dev: val.dev || 0,
+            ui: val.ui || 0,
+            dept_details: val.deptDetails || {},
+            client_note: val.clientNote || '',
+            expected_delivery: val.expectedDelivery || ''
+          }));
+          if (rows.length) {
+            sb.from('clients').upsert(rows).catch(() => {});
+          }
+        }
       }
     } catch (e) {
       console.error('Error writing storage', e);
@@ -161,6 +316,40 @@ class LocalDatabase {
         if (!colData[id]) colData[id] = {};
         colData[id] = { ...colData[id], ...partial };
         self._setColData(col, colData);
+
+        if (col === 'clients') {
+          const sb = getSupabaseClient();
+          if (sb) {
+            const val = colData[id];
+            sb.from('clients').upsert({
+              id,
+              name: val.name || '',
+              cat: val.cat || '',
+              city: val.city || '',
+              phone: val.phone || '',
+              wa: val.wa || '',
+              site: val.site || '',
+              ig: val.ig || '',
+              plat: val.plat || '',
+              by: val.by || '',
+              at: val.at || Date.now(),
+              portal_active: val.portalActive ?? true,
+              portal_username: val.portalUsername || '',
+              portal_password: val.portalPassword || '',
+              seo: Number(val.seo || 0),
+              media: Number(val.media || 0),
+              social: Number(val.social || 0),
+              dev: Number(val.dev || 0),
+              ui: Number(val.ui || 0),
+              dept_details: val.deptDetails || val.dept_details || {},
+              client_note: val.clientNote || val.client_note || '',
+              expected_delivery: val.expectedDelivery || val.expected_delivery || '',
+              updated_at: new Date().toISOString()
+            }).then(({ error }) => {
+              if (error) console.error('Supabase direct update error:', error);
+            }).catch(() => {});
+          }
+        }
       },
       async delete() {
         const colData = self._getColData(col);
@@ -212,6 +401,15 @@ class StorageManager {
   }
 
   getStatus() {
+    const sbConfig = getSupabaseConfig();
+    const hasSb = !!(sbConfig && sbConfig.url && sbConfig.key);
+    if (hasSb) {
+      return {
+        isCloud: true,
+        hasConfig: true,
+        modeText: 'سحابي (Supabase متصل ⚡)'
+      };
+    }
     return {
       isCloud: this.isCloud,
       hasConfig: !!this.getFirebaseConfig(),

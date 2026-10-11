@@ -1091,3 +1091,44 @@ input, select, textarea {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-soft);
 }
+
+/* Tab3 Portal Helper Styles */
+.btn-xs {
+  font-size: 11px;
+  padding: 3px 8px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.portal-dept-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.portal-dept-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.portal-dept-inputs {
+  display: grid;
+  grid-template-columns: 140px 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .portal-dept-inputs {
+    grid-template-columns: 1fr;
+  }
+}
+

@@ -25,7 +25,7 @@
         <!-- Header Actions & User Info -->
         <div class="header-meta">
           <!-- Sync / DB Mode Badge -->
-          <div class="sync-badge" id="sync-status-badge" title="انقر لعرض إعدادات السحابة">
+          <div class="sync-badge" id="sync-status-badge" title="انقر لعرض إعدادات السحابة" style="display: none;">
             <span class="sync-dot"></span>
             <span id="sync-status-text">تخزين محلي</span>
           </div>
@@ -426,11 +426,192 @@
             <button type="button" class="quick-note-tag" data-tag="✕ غير مهتم حالياً">✕ غير مهتم حالياً</button>
           </div>
 
+          <button type="button" class="btn-secondary" id="btn-open-portal-from-notes" style="display:none;background:var(--primary-soft);color:var(--primary);border:1px solid var(--border-glow);margin-bottom:12px;width:100%;justify-content:center;font-weight:700;padding:9px">
+            <i data-lucide="external-link"></i> <span>🚀 فتح بيانات وتفاصيل بوابة تابع (Tab3)</span>
+          </button>
+
           <div id="modal-notes-meta" style="font-size: 11.5px; color: var(--text-dim); margin-bottom: 16px; min-height: 18px;"></div>
 
           <div class="modal-actions">
             <button class="btn-primary" id="btn-save-lead-notes"><i data-lucide="check"></i> <span>حفظ الملاحظة</span></button>
             <button class="btn-secondary" id="btn-cancel-lead-notes">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= MODAL: CLIENT PORTAL & TASK DETAILS (تابع) ================= -->
+      <div class="modal-overlay" id="modal-client-portal">
+        <div class="modal-card" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                🚀
+              </div>
+              <div>
+                <h3 style="font-size: 17px; font-weight: 800; margin: 0;" id="portal-modal-title">إدارة مشروع العميل وبوابة تابع</h3>
+                <span style="font-size: 12px; color: var(--text-muted);" id="portal-modal-subtitle">الربط اللحظي مع بوابة العميل</span>
+              </div>
+            </div>
+            <button class="btn-icon" id="btn-close-portal-modal" style="width: 32px; height: 32px;"><i data-lucide="x"></i></button>
+          </div>
+
+          <!-- Section 1: Credentials & Direct WhatsApp -->
+          <div style="background: var(--bg-canvas); border: 1px solid var(--border-medium); border-radius: var(--radius-md); padding: 14px; margin-bottom: 18px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+              <b style="font-size: 13.5px; display: flex; align-items: center; gap: 6px; color: var(--primary);">
+                <i data-lucide="key"></i> بيانات دخول العميل (منصة تابع)
+              </b>
+              <span class="badge" style="background: var(--success-soft); color: var(--success); font-size: 11px;">مفعلة ونشطة ✓</span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">اسم المستخدم (Username):</label>
+                <input type="text" id="portal-input-username" style="width: 100%; padding: 8px 10px; font-family: var(--font-latin); direction: ltr; font-weight: 600;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">كلمة المرور (Password):</label>
+                <div style="display: flex; gap: 6px;">
+                  <input type="text" id="portal-input-password" style="flex: 1; padding: 8px 10px; font-family: var(--font-latin); direction: ltr; font-weight: 600;" />
+                  <button type="button" id="btn-portal-generate-pw" class="btn-secondary" style="padding: 0 10px;" title="توليد كلمة سر جديدة">🎲</button>
+                </div>
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">رقم هاتف العميل (تعديل):</label>
+                <input type="text" id="portal-input-phone" placeholder="05xxxxxxxx" style="width: 100%; padding: 8px 10px; font-family: var(--font-latin); direction: ltr; font-weight: 600;" />
+              </div>
+            </div>
+
+            <!-- Action buttons for credentials -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" id="btn-portal-copy-creds" class="btn-secondary" style="flex: 1; min-width: 130px; font-size: 12.5px;">
+                <i data-lucide="copy"></i> <span>نسخ البيانات</span>
+              </button>
+              <button type="button" id="btn-portal-send-whatsapp" class="btn-primary" style="background: var(--wa-color); border-color: var(--wa-color); flex: 1.2; min-width: 170px; font-size: 12.5px;">
+                <span>💬 إرسال واتساب للعميل</span>
+              </button>
+              <a id="btn-portal-open-preview" href="http://localhost:5174" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;">
+                <i data-lucide="external-link"></i> <span>معاينة كعميل</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- Section 3: Overall Delivery & Notes -->
+          <div style="background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 18px;">
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">📅 موعد التسليم المتوقع الإجمالي:</label>
+                <input type="text" id="portal-input-delivery" placeholder="مثلاً: 25 أكتوبر أو خلال 10 أيام" style="width: 100%; padding: 8px 10px; font-size: 13px;" />
+              </div>
+              <div>
+                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">💬 رسالة / ملاحظة عامة للعميل في المنصة:</label>
+                <input type="text" id="portal-input-note" placeholder="مثلاً: جاري العمل بكفاءة عالية على تهيئة المتجر والتصميمات..." style="width: 100%; padding: 8px 10px; font-size: 13px;" />
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button class="btn-primary" id="btn-save-portal-details"><i data-lucide="check"></i> <span>حفظ وتحديث العميل</span></button>
+            <button class="btn-secondary" id="btn-cancel-portal-modal">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= MODAL: SUPABASE CLOUD SETTINGS ================= -->
+      <div class="modal-overlay" id="modal-supabase-settings">
+        <div class="modal-card" style="max-width: 520px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                ⚡
+              </div>
+              <div>
+                <h3 style="font-size: 17px; font-weight: 800; margin: 0;">إعدادات السحابة (Supabase)</h3>
+                <span style="font-size: 12px; color: var(--text-muted);">ربط مباشر مع قاعدة بيانات سحابية وتحديث لحظي</span>
+              </div>
+            </div>
+            <button class="btn-icon" id="btn-close-supabase-modal" style="width: 32px; height: 32px;"><i data-lucide="x"></i></button>
+          </div>
+
+          <div style="margin-bottom: 16px;">
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label style="font-size: 12.5px; font-weight: 700;">رابط المشروع (Supabase Project URL):</label>
+              <input type="text" id="supabase-input-url" placeholder="https://xxxxxxxx.supabase.co" style="width: 100%; padding: 9px 12px; font-family: var(--font-latin); direction: ltr;" />
+            </div>
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label style="font-size: 12.5px; font-weight: 700;">المفتاح العام (Supabase Anon Key):</label>
+              <textarea id="supabase-input-key" rows="3" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="width: 100%; padding: 9px 12px; font-family: var(--font-latin); direction: ltr; font-size: 12px;"></textarea>
+            </div>
+            <div id="supabase-status-msg" style="font-size: 12.5px; min-height: 20px;"></div>
+          </div>
+
+          <div class="modal-actions" style="display: flex; gap: 8px;">
+            <button class="btn-primary" id="btn-save-supabase-config" style="flex: 1; justify-content: center;">
+              <i data-lucide="save"></i> <span>حفظ وتفعيل الاتصال</span>
+            </button>
+            <button class="btn-secondary" id="btn-disconnect-supabase" style="color: var(--danger);">
+              <span>مسح الإعدادات</span>
+            </button>
+            <button class="btn-secondary" id="btn-cancel-supabase-modal">إلغاء</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= MODAL: DEPARTMENT TASK HANDOFF & NOTES ================= -->
+      <div class="modal-overlay" id="modal-dept-handoff">
+        <div class="modal-card" style="max-width: 500px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: var(--success-soft); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                ✓
+              </div>
+              <div>
+                <h3 style="font-size: 17px; font-weight: 800; margin: 0;" id="handoff-modal-title">تسليم المرحلة والملاحظات</h3>
+                <span style="font-size: 12px; color: var(--text-muted);" id="handoff-modal-subtitle">إرسال التحديث وتوجيه المهام للأقسام الأخرى</span>
+              </div>
+            </div>
+            <button class="btn-icon" id="btn-close-handoff-modal" style="width: 32px; height: 32px;"><i data-lucide="x"></i></button>
+          </div>
+
+          <div style="margin-bottom: 14px;">
+            <div style="margin-bottom: 10px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-canvas); border: 1px solid var(--border-subtle); font-size: 12.5px; display: flex; justify-content: space-between;">
+              <span>العميل: <b id="handoff-modal-client-name" style="color:var(--text-main)">—</b></span>
+              <span>القسم: <b id="handoff-modal-dept-name" style="color:var(--primary)">—</b></span>
+            </div>
+
+            <div id="handoff-incoming-banner" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:var(--radius-sm);background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);font-size:12.5px;line-height:1.5;">
+              <div style="font-weight:700;color:var(--primary);margin-bottom:4px;display:flex;align-items:center;gap:6px">
+                <span>📩 مهمة موجهة من قسم:</span>
+                <span id="handoff-incoming-from-name" style="text-decoration:underline">—</span>
+              </div>
+              <div id="handoff-incoming-note-text" style="color:var(--text-main);font-size:13px;word-break:break-word;">—</div>
+              <div id="handoff-incoming-links" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"></div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label style="font-size: 12.5px; font-weight: 700;">ملاحظة الإنجاز أو رابط العمل (Figma, Drive, كود...):</label>
+              <textarea id="handoff-input-note" rows="3" placeholder="مثال: تم تجهيز ملف الكلمات المفتاحية والسيو، الرابط: https://drive.google.com/..." style="width: 100%; padding: 8px 10px; font-size: 13px;"></textarea>
+              <div id="handoff-detected-links" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"></div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label style="font-size: 12.5px; font-weight: 700;">📢 توجيه مهمة / إشعار لقسم آخر (اختياري):</label>
+              <select id="handoff-select-target" class="filter-select" style="width: 100%; padding: 8px 12px; font-size: 13px;">
+                <option value="">بدون توجيه لقسم آخر</option>
+                <option value="dev">💻 البرمجة والتطوير (Dev)</option>
+                <option value="ui">🎨 التصميم وتجربة المستخدم (UI)</option>
+                <option value="seo">🔍 تهيئة محركات البحث (SEO)</option>
+                <option value="media">🎯 الإعلانات والميديا باير (Media)</option>
+                <option value="social">📱 المحتوى والسوشيال ميديا (Social)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="display: flex; gap: 8px;">
+            <button class="btn-primary" id="btn-confirm-handoff" style="flex: 1; justify-content: center;">
+              <i data-lucide="check"></i> <span>تأكيد وحفظ التسليم ✓</span>
+            </button>
+            <button class="btn-secondary" id="btn-cancel-handoff">إلغاء</button>
           </div>
         </div>
       </div>

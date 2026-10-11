@@ -399,8 +399,8 @@ export class CanvasCustomerTable {
         ctx.direction = 'ltr';
         ctx.textAlign = 'left';
         ctx.font = '600 12px "Plus Jakarta Sans", monospace';
-        ctx.fillStyle = colors.textMuted;
-        const phoneText = r[6] || '—';
+        const rawP = (r[6] || '').trim();
+        const phoneText = rawP.length > 5 ? rawP.substring(0, 3) + '••••' + rawP.slice(-2) : (rawP ? '••••••••' : '—');
         this.renderTruncatedText(ctx, phoneText, x + 12, centerY + 4, w - 24);
         ctx.restore();
         break;

@@ -2,6 +2,7 @@ import { decryptAll, hpw, mkCred, b2u } from './crypto.js';
 import { db, dbManager } from './storage.js';
 import { CanvasCustomerTable } from './canvasTable.js';
 import { initIcons } from './icons.js';
+import { getSupabaseConfig, saveSupabaseConfig, resetSupabaseClient } from './supabase.js';
 import * as XLSX from 'xlsx';
 
 // Global application state
@@ -165,6 +166,17 @@ export async function initApp() {
     }
   });
 
+  const syncBadge = $('sync-status-badge');
+  if (syncBadge) {
+    syncBadge.style.cursor = 'pointer';
+    syncBadge.addEventListener('click', () => {
+      const isAdmin = state.role === 'owner' || state.me?.isOwner || state.sess === 'admin';
+      if (isAdmin) {
+        openSupabaseSettingsModal();
+      }
+    });
+  }
+
   // Only decrypt master dataset if an authenticated admin password exists in this active session
   const savedPw = sessionStorage.getItem('crm_admin_pw');
   if (savedPw) {
@@ -237,6 +249,39 @@ async function seedDefaultUsers() {
       await db.doc('profiles/sara').set({ name: 'سارة (سيلز)', role: 'sales' });
       await db.doc('users/omar').set(await mkCred('123456'));
       await db.doc('profiles/omar').set({ name: 'عمر (برمجة)', role: 'dev' });
+    }
+
+    const demoClient = await db.doc('clients/demo_1').get();
+    if (!demoClient.exists) {
+      await db.doc('clients/demo_1').set({
+        name: 'مؤسسة الصفوة للتجارة',
+        cat: 'تجارة إلكترونية وأزياء',
+        city: 'الرياض',
+        phone: '0501234567',
+        wa: 'https://wa.me/966501234567',
+        site: 'https://example.com',
+        ig: '',
+        plat: 'سلة / شوبيفاي',
+        by: 'ahmed',
+        at: Date.now() - 86400000 * 3,
+        portalActive: true,
+        portalUsername: '0501234567',
+        portalPassword: '123456',
+        seo: 1,
+        media: 1,
+        social: 2,
+        dev: 1,
+        ui: 2,
+        deptDetails: {
+          seo: { status: 1, assignee: 'أحمد', deadline: '25 أكتوبر 2026', note: 'جاري فحص الكلمات المفتاحية وضبط السيو الداخلي للمنتجات' },
+          media: { status: 1, assignee: 'سارة', deadline: '20 أكتوبر 2026', note: 'تم إطلاق الحملات الإعلانية التجريبية واستهداف المهتمين' },
+          social: { status: 2, assignee: 'مريم', deadline: '15 أكتوبر 2026', note: 'تم اعتماد وتجهيز خطة المحتوى ونشر بوستات الهوية' },
+          dev: { status: 1, assignee: 'عمر', deadline: '28 أكتوبر 2026', note: 'برمجة وتخصيص المتجر، ربط بوابات تمارا وتابي والدفع الإلكتروني' },
+          ui: { status: 2, assignee: 'ياسين', deadline: '12 أكتوبر 2026', note: 'تم تسليم كافة تصاميم الواجهات والبانرات الإعلانية بنجاح' }
+        },
+        clientNote: 'يسير العمل على مشروعكم بشكل ممتاز ومتقدم عن الجدول الزمني المخطط له! 🚀',
+        expectedDelivery: '30 أكتوبر 2026'
+      });
     }
   } catch (err) {
     console.warn('Seed users error:', err);
@@ -311,6 +356,7 @@ function renderApp() {
     $('nav-tabs-container').style.display = 'none';
     $('header-user-info').style.display = 'none';
     $('btn-logout').style.display = 'none';
+    if ($('sync-status-badge')) $('sync-status-badge').style.display = 'none';
     initIcons();
     return;
   }
@@ -318,6 +364,12 @@ function renderApp() {
   $('btn-logout').style.display = 'flex';
   $('header-user-info').style.display = 'flex';
   $('nav-tabs-container').style.display = 'flex';
+
+  const isAdmin = state.role === 'owner' || state.me?.isOwner || state.sess === 'admin';
+  const syncBadgeEl = $('sync-status-badge');
+  if (syncBadgeEl) {
+    syncBadgeEl.style.display = isAdmin ? 'inline-flex' : 'none';
+  }
 
   const userDisplayName = state.me?.isOwner ? 'سوبر أدمن' : nm(state.sess);
   const roleTitle = state.role === 'owner' ? 'المالك / Super Admin' : (ROLES[state.role] || state.role);
@@ -351,7 +403,10 @@ function renderTabs() {
       { id: 'settings', label: 'إعدادات السحابة', icon: 'settings' }
     );
   } else if (state.role === 'sales') {
-    tabs.push({ id: 'leads', label: 'عملاء المبيعات المحتملين', icon: 'users' });
+    tabs.push(
+      { id: 'leads', label: 'عملاء المبيعات المحتملين', icon: 'users' },
+      { id: 'clients', label: 'التنفيذ والمشاريع', icon: 'briefcase' }
+    );
   } else if (DEPTS.includes(state.role)) {
     tabs.push({ id: 'clients', label: 'مشاريع التنفيذ', icon: 'briefcase' });
   }
@@ -909,6 +964,21 @@ function openNotesModal(cid, r) {
     }
   }
 
+  const isAdmin = state.role === 'owner' || state.me?.isOwner || state.sess === 'admin';
+  const portalBtn = $('btn-open-portal-from-notes');
+  if (portalBtn) {
+    if (st.j && isAdmin) {
+      portalBtn.style.display = 'inline-flex';
+      portalBtn.onclick = () => {
+        const modal = $('modal-lead-notes');
+        if (modal) modal.classList.remove('active');
+        openClientPortalModal(cid);
+      };
+    } else {
+      portalBtn.style.display = 'none';
+    }
+  }
+
   const modal = $('modal-lead-notes');
   if (modal) {
     modal.classList.add('active');
@@ -1194,6 +1264,9 @@ async function toggleStage(row, stageKey) {
   try {
     await db.doc(`leads/${cid}`).set(newState);
     if (shouldCreateClient) {
+      const cleanPhone = (row[6] || '').replace(/[^0-9]/g, '');
+      const portalUser = cleanPhone || `client_${cid}`;
+      const portalPass = Math.floor(100000 + Math.random() * 900000).toString();
       await db.doc(`clients/${cid}`).set({
         name: row[3],
         cat: row[4],
@@ -1205,13 +1278,28 @@ async function toggleStage(row, stageKey) {
         plat: row[10],
         by: currentUid,
         at: now,
+        portalActive: true,
+        portalUsername: portalUser,
+        portalPassword: portalPass,
         seo: 0,
         media: 0,
         social: 0,
         dev: 0,
-        ui: 0
+        ui: 0,
+        deptDetails: {
+          seo: { assignee: '', deadline: '', note: '' },
+          media: { assignee: '', deadline: '', note: '' },
+          social: { assignee: '', deadline: '', note: '' },
+          dev: { assignee: '', deadline: '', note: '' },
+          ui: { assignee: '', deadline: '', note: '' }
+        },
+        clientNote: 'أهلاً بك! تم تأكيد انضمامك ويبدأ فريق العمل في تجهيز ومتابعة مشروعك الآن.',
+        expectedDelivery: ''
       });
-      toast(`تمت إضافة ${row[3]} إلى جدول التنفيذ ✓`, 'success');
+      toast(`تمت إضافة ${row[3]} وتفعيل حسابه على منصة تابع ✓`, 'success');
+      setTimeout(() => {
+        openClientPortalModal(cid);
+      }, 400);
     }
     if (shouldDeleteClient) {
       await db.doc(`clients/${cid}`).delete();
@@ -1267,24 +1355,66 @@ function renderKPIs() {
   `).join('');
 }
 
+// Helper: Ensure client has Tab3 portal credentials and task structure
+function ensureClientPortalCreds(cid, client) {
+  if (!client) return null;
+  let modified = false;
+  const copy = { ...client };
+  if (!copy.portalUsername) {
+    const cleanPhone = (copy.phone || '').replace(/[^0-9]/g, '');
+    copy.portalUsername = cleanPhone || `client_${cid}`;
+    modified = true;
+  }
+  if (!copy.portalPassword) {
+    copy.portalPassword = Math.floor(100000 + Math.random() * 900000).toString();
+    modified = true;
+  }
+  if (!copy.deptDetails) {
+    copy.deptDetails = {
+      seo: { assignee: '', deadline: '', note: '' },
+      media: { assignee: '', deadline: '', note: '' },
+      social: { assignee: '', deadline: '', note: '' },
+      dev: { assignee: '', deadline: '', note: '' },
+      ui: { assignee: '', deadline: '', note: '' }
+    };
+    modified = true;
+  }
+  if (!copy.clientNote) {
+    copy.clientNote = 'أهلاً بك! تم تأكيد انضمامك ويبدأ فريق العمل في تجهيز ومتابعة مشروعك الآن.';
+    modified = true;
+  }
+  if (modified) {
+    db.doc(`clients/${cid}`).update(copy).catch(console.error);
+  }
+  return copy;
+}
+
+let activePortalCid = null;
+
 // ----------------- DELIVERY VIEW (Clients) -----------------
 function renderClientsView() {
   const container = $('clients-content');
-  const rows = [...state.C.entries()].sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+  const rawRows = [...state.C.entries()].sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+  const rows = rawRows.map(([id, x]) => [id, ensureClientPortalCreds(id, x)]);
 
   if (!rows.length) {
     container.innerHTML = `
       <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
         <div style="font-size:36px;margin-bottom:10px">🚀</div>
         <b>لا يوجد عملاء منضمين حالياً.</b>
-        <p style="margin-top:6px;font-size:13px">بمجرد قيام السيلز بتعليم عميل "معانا"، سيظهر هنا لتبدأ أقسام التنفيذ العمل عليه.</p>
+        <p style="margin-top:6px;font-size:13px">بمجرد قيام السيلز بتعليم عميل "معانا"، سيظهر هنا لتبدأ أقسام التنفيذ العمل عليه وتفعيل حسابه في منصة تابع.</p>
       </div>`;
     return;
   }
 
+  const isAdmin = state.role === 'owner' || state.me?.isOwner || state.sess === 'admin';
+
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-      <span style="font-weight:700">${rows.length} عميل في مرحلة التنفيذ</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-weight:700">${rows.length} عميل في مرحلة التنفيذ ${isAdmin ? 'ومربوطين بـ تابع' : ''}</span>
+        ${isAdmin ? '<span class="badge" style="background:var(--primary-soft);color:var(--primary);font-size:11px;">مزامنة لحظية Live Sync</span>' : ''}
+      </div>
       <span style="font-size:12.5px;color:var(--text-muted)">الحالات: 0 = لسه | 1 = شغّال | 2 = خلص</span>
     </div>
     <div class="standard-table-wrapper">
@@ -1294,69 +1424,548 @@ function renderClientsView() {
             <th>العميل</th>
             <th>النشاط</th>
             <th>المدينة</th>
-            <th>الرقم</th>
-            <th>روابط سريعة</th>
+            ${isAdmin ? `<th>الرقم</th>` : ''}
+            ${isAdmin ? `<th>بوابة تابع 🚀</th>` : ''}
+            <th>الموقع 🌐</th>
             <th>بواسطة</th>
             ${DEPTS.map(d => `<th>${DEPT_LABELS[d]}</th>`).join('')}
+            ${isAdmin ? `<th>إدارة المهام</th>` : ''}
           </tr>
         </thead>
         <tbody>
   `;
 
   rows.forEach(([id, x]) => {
-    const waLink = x.wa ? `<a href="${x.wa.startsWith('http') ? x.wa : 'https://wa.me/' + x.wa.replace(/[^0-9]/g, '')}" target="_blank" class="link-btn wa" title="واتساب">💬</a>` : '';
-    const siteLink = x.site ? `<a href="${x.site}" target="_blank" class="link-btn web" title="الموقع">🌐</a>` : '';
-    const igLink = x.ig ? `<a href="${x.ig}" target="_blank" class="link-btn ig" title="انستجرام">📷</a>` : '';
+    const rawP = (x.phone || '').trim();
+    const maskedPhone = rawP.length > 5 ? rawP.substring(0, 3) + '••••' + rawP.slice(-2) : (rawP ? '••••••••' : '—');
+    const cleanPhone = (x.phone || '').replace(/[^0-9]/g, '');
+    const waMsg = `مرحباً بك ${x.name || ''} 👋\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة ومن يعمل عليها عبر منصة "تابع":\n🌐 رابط المنصة: http://localhost:5174\n👤 اسم المستخدم: ${x.portalUsername}\n🔑 كلمة المرور: ${x.portalPassword}\n\nشكراً لثقتك بنا! ✨`;
+    const waShareUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMsg)}`;
+
+    const rawSite = (x.site || '').trim();
+    const isInvalidSite = !rawSite || 
+      rawSite === '—' || 
+      rawSite === '-' || 
+      rawSite.toLowerCase() === 'none' || 
+      rawSite.toLowerCase() === 'n/a' || 
+      rawSite === 'لا يوجد' || 
+      rawSite === 'بدون' || 
+      rawSite === 'انشاء' || 
+      rawSite === 'إنشاء';
+    const hasSite = !isInvalidSite;
+    const siteUrl = hasSite ? (rawSite.startsWith('http') ? rawSite : 'https://' + rawSite) : '';
 
     html += `
       <tr>
         <td><b>${esc(x.name || 'بدون اسم')}</b></td>
         <td>${esc(x.cat || '—')}</td>
         <td>${esc(x.city || '—')}</td>
-        <td style="direction:ltr;font-family:var(--font-latin)">${esc(x.phone || '—')}</td>
-        <td><div style="display:flex;gap:4px">${waLink}${siteLink}${igLink}</div></td>
+        ${isAdmin ? `<td style="direction:ltr;font-family:var(--font-latin);color:var(--text-muted);font-weight:600">${maskedPhone}</td>` : ''}
+        ${isAdmin ? `
+        <td style="white-space:nowrap">
+          <div style="display:flex;flex-direction:column;gap:3px">
+            <div style="display:flex;gap:4px;font-size:11px;direction:ltr;font-family:var(--font-latin)">
+              <span style="background:var(--bg-canvas);padding:2px 5px;border-radius:4px;border:1px solid var(--border-subtle);color:var(--primary);font-weight:600">👤 ${esc(x.portalUsername)}</span>
+              <span style="background:var(--bg-canvas);padding:2px 5px;border-radius:4px;border:1px solid var(--border-subtle);color:var(--warning);font-weight:600">🔑 ${esc(x.portalPassword)}</span>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn-xs btn-secondary btn-copy-portal" data-client-id="${id}" title="نسخ بيانات الدخول ورابط تابع">📋 نسخ</button>
+              <a href="${waShareUrl}" target="_blank" class="btn-xs btn-primary" style="background:var(--wa-color);border-color:var(--wa-color);text-decoration:none" title="إرسال بيانات الدخول واتساب">💬 واتساب</a>
+            </div>
+          </div>
+        </td>` : ''}
+        <td>
+          ${hasSite 
+            ? `<a href="${siteUrl}" target="_blank" rel="noopener noreferrer" class="link-btn web" title="زيارة الموقع: ${esc(rawSite)}" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;padding:4px 9px;border-radius:6px;background:rgba(59,130,246,0.12);color:var(--primary);font-size:12px;font-weight:700;border:1px solid rgba(59,130,246,0.25)">
+                🌐 الموقع
+              </a>`
+            : `<button class="btn-xs btn-secondary btn-create-site" data-client-id="${id}" title="العميل ليس لديه موقع - انقر لتسجيل رابط الموقع بعد الإنشاء" style="background:rgba(245,158,11,0.15);color:var(--warning);border:1px solid rgba(245,158,11,0.35);font-size:11.5px;font-weight:800;padding:4px 9px;border-radius:6px;cursor:pointer">
+                إنشاء 🌐
+              </button>`
+          }
+        </td>
         <td style="font-size:12px;color:var(--text-dim)">${esc(nm(x.by))} · ${fmt(x.at)}</td>
     `;
 
     DEPTS.forEach(d => {
       const val = x[d] || 0;
       const canEdit = state.role === 'owner' || state.role === d;
+      const details = x.deptDetails?.[d] || {};
+
+      // Check incoming handoff from other depts
+      let incomingFrom = null;
+      let incomingNote = '';
+      if (x.deptDetails) {
+        for (const [fromD, info] of Object.entries(x.deptDetails)) {
+          if (fromD !== d && info?.handoffTo === d && info?.note) {
+            incomingFrom = fromD;
+            incomingNote = info.note;
+            break;
+          }
+        }
+      }
+
+      let handoffBadge = '';
+      if (incomingFrom) {
+        handoffBadge += `
+          <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${incomingFrom}" title="مهمة موجهة من ${DEPT_LABELS[incomingFrom] || incomingFrom}: ${esc(incomingNote)}" style="margin-top:3px;font-size:10px;background:rgba(59,130,246,0.18);color:var(--primary);border:1px solid rgba(59,130,246,0.35);padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            📩 من ${DEPT_LABELS[incomingFrom] || incomingFrom}
+          </div>
+        `;
+      }
+      if (details.note) {
+        handoffBadge += `
+          <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${d}" title="الملاحظة: ${esc(details.note)}" style="margin-top:3px;font-size:10px;background:rgba(16,185,129,0.15);color:var(--success);border:1px solid rgba(16,185,129,0.3);padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            📝 ملاحظة ${details.handoffTo ? '→ ' + (DEPT_LABELS[details.handoffTo] || details.handoffTo) : ''}
+          </div>
+        `;
+      }
 
       if (canEdit) {
         html += `
           <td>
-            <select class="dept-status-select dept-status-${val}" data-client-id="${id}" data-dept="${d}">
-              <option value="0" ${val === 0 ? 'selected' : ''}>لسه</option>
-              <option value="1" ${val === 1 ? 'selected' : ''}>شغّال</option>
-              <option value="2" ${val === 2 ? 'selected' : ''}>خلص</option>
-            </select>
+            <div style="display:flex;flex-direction:column;align-items:center">
+              <select class="dept-status-select dept-status-${val}" data-client-id="${id}" data-dept="${d}">
+                <option value="0" ${val === 0 ? 'selected' : ''}>لسه</option>
+                <option value="1" ${val === 1 ? 'selected' : ''}>شغّال</option>
+                <option value="2" ${val === 2 ? 'selected' : ''}>خلص</option>
+              </select>
+              ${handoffBadge}
+            </div>
           </td>`;
       } else {
         const text = ['لسه', 'شغّال', 'خلص'][val];
-        html += `<td><span class="dept-status-select dept-status-${val}">${text}</span></td>`;
+        html += `
+          <td>
+            <div style="display:flex;flex-direction:column;align-items:center">
+              <span class="dept-status-select dept-status-${val}">${text}</span>
+              ${handoffBadge}
+            </div>
+          </td>`;
       }
     });
 
-    html += '</tr>';
+    if (isAdmin) {
+      html += `
+        <td>
+          <button class="btn-xs btn-secondary btn-edit-portal" data-client-id="${id}" style="padding:4px 8px;font-size:11.5px">
+            ⚙️ تفاصيل تابع
+          </button>
+        </td>
+      `;
+    }
+
+    html += `</tr>`;
   });
 
   html += '</tbody></table></div>';
   container.innerHTML = html;
 
+  // Status select change handlers
   container.querySelectorAll('.dept-status-select').forEach(sel => {
     sel.onchange = async () => {
       const cid = sel.dataset.clientId;
       const dept = sel.dataset.dept;
       const val = parseInt(sel.value, 10);
-      try {
-        await db.doc(`clients/${cid}`).update({ [dept]: val });
-        sel.className = `dept-status-select dept-status-${val}`;
-        toast('تم تحديث حالة القسم ✓', 'success');
-      } catch {
-        toast('تعذّر حفظ التحديث', 'error');
+
+      // If user selected "خلص" (2), open handoff & notes modal!
+      if (val === 2) {
+        openDeptHandoffModal(cid, dept, sel);
+        return;
+      }
+
+      // Otherwise save directly
+      await saveDeptStatus(cid, dept, val);
+      sel.className = `dept-status-select dept-status-${val}`;
+    };
+  });
+
+  // Click on handoff note pill to view / edit notes and links
+  container.querySelectorAll('.btn-handoff-pill').forEach(btn => {
+    btn.onclick = () => {
+      const cid = btn.dataset.clientId;
+      const targetDept = btn.dataset.openDept || btn.dataset.dept;
+      openDeptHandoffModal(cid, targetDept);
+    };
+  });
+
+  // Click on 'إنشاء 🌐' to set website URL
+  container.querySelectorAll('.btn-create-site').forEach(btn => {
+    btn.onclick = async () => {
+      const cid = btn.dataset.clientId;
+      const cur = state.C.get(cid);
+      const url = prompt(`إضافة رابط الموقع للعميل (${cur?.name || ''}):`, 'https://');
+      if (url && url.trim() && url.trim() !== 'https://') {
+        let clean = url.trim();
+        if (!clean.startsWith('http://') && !clean.startsWith('https://')) clean = 'https://' + clean;
+        await db.doc(`clients/${cid}`).update({ site: clean });
+        toast('تم حفظ رابط الموقع للعميل بنجاح 🌐', 'success');
+        renderClientsView();
       }
     };
   });
+
+  // Copy portal credentials handler
+  container.querySelectorAll('.btn-copy-portal').forEach(btn => {
+    btn.onclick = () => {
+      const cid = btn.dataset.clientId;
+      const x = state.C.get(cid);
+      if (!x) return;
+      const text = `بيانات الدخول لمنصة تابع:\nالرابط: http://localhost:5174\nاسم المستخدم: ${x.portalUsername}\nكلمة المرور: ${x.portalPassword}`;
+      navigator.clipboard.writeText(text).then(() => {
+        toast('تم نسخ بيانات الدخول إلى الحافظة ✓', 'success');
+      }).catch(() => {
+        prompt('انسخ بيانات الدخول:', text);
+      });
+    };
+  });
+
+  // Open portal modal handler
+  container.querySelectorAll('.btn-edit-portal').forEach(btn => {
+    btn.onclick = () => {
+      openClientPortalModal(btn.dataset.clientId);
+    };
+  });
+}
+
+function openClientPortalModal(cid) {
+  const isAdmin = state.role === 'owner' || state.me?.isOwner || state.sess === 'admin';
+  if (!isAdmin) return;
+
+  const client = ensureClientPortalCreds(cid, state.C.get(cid));
+  if (!client) return;
+  activePortalCid = cid;
+
+  const modal = $('modal-client-portal');
+  if (!modal) return;
+
+  $('portal-modal-title').textContent = `إدارة مشروع: ${client.name || 'العميل'} | منصة تابع`;
+  const rawP = (client.phone || '').trim();
+  const maskedP = rawP.length > 5 ? rawP.substring(0, 3) + '••••' + rawP.slice(-2) : (rawP ? '••••••••' : '—');
+  $('portal-modal-subtitle').textContent = `النشاط: ${client.cat || '—'} · الهاتف: ${maskedP}`;
+  
+  $('portal-input-username').value = client.portalUsername || '';
+  $('portal-input-password').value = client.portalPassword || '';
+  const phoneInput = $('portal-input-phone');
+  if (phoneInput) phoneInput.value = client.phone || '';
+  $('portal-input-delivery').value = client.expectedDelivery || '';
+  $('portal-input-note').value = client.clientNote || '';
+
+  // Setup preview link with full client payload for instant zero-latency login
+  const previewLink = $('btn-portal-open-preview');
+  if (previewLink) {
+    const dataStr = encodeURIComponent(JSON.stringify(client));
+    previewLink.href = `http://localhost:5174?u=${encodeURIComponent(client.portalUsername || '')}&p=${encodeURIComponent(client.portalPassword || '')}&cid=${cid}&data=${dataStr}`;
+  }
+
+  // Setup generate password button
+  $('btn-portal-generate-pw').onclick = () => {
+    const newPass = Math.floor(100000 + Math.random() * 900000).toString();
+    $('portal-input-password').value = newPass;
+    toast('تم توليد كلمة سر جديدة 🎲', 'info');
+  };
+
+  // Setup copy credentials button
+  $('btn-portal-copy-creds').onclick = () => {
+    const u = $('portal-input-username').value.trim();
+    const p = $('portal-input-password').value.trim();
+    const text = `بيانات الدخول لمنصة تابع:\nالرابط: http://localhost:5174\nاسم المستخدم: ${u}\nكلمة المرور: ${p}`;
+    navigator.clipboard.writeText(text).then(() => {
+      toast('تم نسخ بيانات الدخول ✓', 'success');
+    }).catch(() => {
+      prompt('انسخ البيانات:', text);
+    });
+  };
+
+  // Setup send WhatsApp button
+  $('btn-portal-send-whatsapp').onclick = () => {
+    const u = $('portal-input-username').value.trim();
+    const p = $('portal-input-password').value.trim();
+    const phoneInputVal = $('portal-input-phone') ? $('portal-input-phone').value.trim() : (client.phone || '');
+    const cleanPhone = phoneInputVal.replace(/[^0-9]/g, '');
+    const msg = `مرحباً بك ${client.name || ''} 👋\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة عبر منصة "تابع":\n🌐 رابط المنصة: http://localhost:5174\n👤 اسم المستخدم: ${u}\n🔑 كلمة المرور: ${p}\n\nشكراً لثقتك بنا! ✨`;
+    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+  };
+
+  // Setup save button
+  $('btn-save-portal-details').onclick = async () => {
+    if (!activePortalCid) return;
+    const u = $('portal-input-username').value.trim();
+    const p = $('portal-input-password').value.trim();
+    const phoneVal = $('portal-input-phone') ? $('portal-input-phone').value.trim() : (client.phone || '');
+    const delivery = $('portal-input-delivery').value.trim();
+    const note = $('portal-input-note').value.trim();
+
+    if (!u || !p) {
+      toast('يرجى كتابة اسم المستخدم وكلمة المرور', 'error');
+      return;
+    }
+
+    const updatePayload = {
+      portalUsername: u,
+      portalPassword: p,
+      phone: phoneVal,
+      expectedDelivery: delivery,
+      clientNote: note
+    };
+
+    try {
+      await db.doc(`clients/${activePortalCid}`).update(updatePayload);
+      toast('تم حفظ وتحديث بيانات العميل ومنصة تابع بنجاح ✓', 'success');
+      modal.classList.remove('active');
+      renderClientsView();
+    } catch (err) {
+      console.error(err);
+      toast('تعذّر حفظ التحديثات', 'error');
+    }
+  };
+
+  const closeModal = () => modal.classList.remove('active');
+  $('btn-close-portal-modal').onclick = closeModal;
+  $('btn-cancel-portal-modal').onclick = closeModal;
+
+  modal.classList.add('active');
+  initIcons();
+}
+
+let activeHandoffCid = null;
+let activeHandoffDept = null;
+let activeHandoffSel = null;
+
+function renderDetectedLinks(text, containerEl) {
+  if (!containerEl) return;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const matches = (text || '').match(urlRegex) || [];
+  if (!matches.length) {
+    containerEl.innerHTML = '';
+    return;
+  }
+  containerEl.innerHTML = matches.map(url => {
+    let label = 'رابط خارجي';
+    try {
+      const u = new URL(url);
+      label = u.hostname.replace('www.', '');
+    } catch {}
+    return `
+      <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:rgba(59,130,246,0.15);color:var(--primary);border:1px solid rgba(59,130,246,0.3);font-size:11.5px;font-weight:700;text-decoration:none;direction:ltr">
+        🔗 ${esc(label)}
+      </a>
+    `;
+  }).join('');
+}
+
+function openDeptHandoffModal(cid, dept, selElement = null) {
+  const client = state.C.get(cid);
+  if (!client) return;
+
+  activeHandoffCid = cid;
+  activeHandoffDept = dept;
+  activeHandoffSel = selElement;
+
+  const modal = $('modal-dept-handoff');
+  if (!modal) return;
+
+  const deptLabel = DEPT_LABELS[dept] || dept;
+  const details = client.deptDetails?.[dept] || {};
+
+  $('handoff-modal-client-name').textContent = client.name || 'بدون اسم';
+  $('handoff-modal-dept-name').textContent = deptLabel;
+
+  if (selElement) {
+    $('handoff-modal-title').textContent = `تسليم مرحلة ${deptLabel} بنجاح ✓`;
+    $('handoff-modal-subtitle').textContent = 'سجل ملاحظات الإنجاز وروابط العمل، ووجّه المهام لباقي الأقسام';
+  } else {
+    $('handoff-modal-title').textContent = `ملاحظات وتوجيه مهمة: ${deptLabel}`;
+    $('handoff-modal-subtitle').textContent = 'عرض أو تعديل ملاحظات الإنجاز وروابط الملفات المشتركة';
+  }
+
+  // Check incoming handoff from another dept
+  let incomingFrom = null;
+  let incomingNote = '';
+  if (client.deptDetails) {
+    for (const [fromD, info] of Object.entries(client.deptDetails)) {
+      if (fromD !== dept && info?.handoffTo === dept && info?.note) {
+        incomingFrom = fromD;
+        incomingNote = info.note;
+        break;
+      }
+    }
+  }
+
+  const incomingBanner = $('handoff-incoming-banner');
+  if (incomingBanner) {
+    if (incomingFrom) {
+      incomingBanner.style.display = 'block';
+      $('handoff-incoming-from-name').textContent = DEPT_LABELS[incomingFrom] || incomingFrom;
+      $('handoff-incoming-note-text').textContent = incomingNote;
+      renderDetectedLinks(incomingNote, $('handoff-incoming-links'));
+    } else {
+      incomingBanner.style.display = 'none';
+    }
+  }
+
+  // Populate note
+  const noteInput = $('handoff-input-note');
+  noteInput.value = details.note || '';
+  const detectedLinksEl = $('handoff-detected-links');
+  renderDetectedLinks(details.note || '', detectedLinksEl);
+
+  // Live URL detection as user types
+  noteInput.oninput = () => {
+    renderDetectedLinks(noteInput.value, detectedLinksEl);
+  };
+
+  // Populate target dept dropdown
+  const DEPT_FULL_LABELS = {
+    dev: '💻 البرمجة والتطوير (Dev)',
+    ui: '🎨 التصميم وتجربة المستخدم (UI)',
+    seo: '🔍 تهيئة محركات البحث (SEO)',
+    media: '🎯 الإعلانات والميديا باير (Media)',
+    social: '📱 المحتوى والسوشيال ميديا (Social)'
+  };
+  const targetSelect = $('handoff-select-target');
+  let targetOptionsHtml = `<option value="">بدون توجيه لقسم آخر</option>`;
+  DEPTS.forEach(d => {
+    if (d !== dept) {
+      const isSelected = details.handoffTo === d ? 'selected' : '';
+      targetOptionsHtml += `<option value="${d}" ${isSelected}>${DEPT_FULL_LABELS[d] || DEPT_LABELS[d] || d}</option>`;
+    }
+  });
+  targetSelect.innerHTML = targetOptionsHtml;
+
+  // Cancel / Close handler
+  const closeModal = (isConfirm = false) => {
+    modal.classList.remove('active');
+    if (!isConfirm && activeHandoffSel) {
+      // Revert select back to original value if canceled
+      const prevVal = client[dept] !== undefined ? client[dept] : 0;
+      activeHandoffSel.value = String(prevVal);
+      activeHandoffSel.className = `dept-status-select dept-status-${prevVal}`;
+    }
+    activeHandoffCid = null;
+    activeHandoffDept = null;
+    activeHandoffSel = null;
+  };
+
+  $('btn-close-handoff-modal').onclick = () => closeModal(false);
+  $('btn-cancel-handoff').onclick = () => closeModal(false);
+
+  // Confirm / Save handler
+  $('btn-confirm-handoff').onclick = async () => {
+    const note = noteInput.value.trim();
+    const targetDept = targetSelect.value;
+    await saveDeptStatus(cid, dept, 2, note, targetDept);
+    closeModal(true);
+    renderClientsView();
+  };
+
+  modal.classList.add('active');
+  initIcons();
+  setTimeout(() => noteInput.focus(), 50);
+}
+
+async function saveDeptStatus(cid, dept, val, note = null, targetDept = null) {
+  const client = state.C.get(cid);
+  if (!client) return;
+
+  const deptDetails = { ...(client.deptDetails || {}) };
+  const existingDeptInfo = deptDetails[dept] || {};
+
+  deptDetails[dept] = {
+    ...existingDeptInfo,
+    status: val,
+    note: note !== null ? note : (existingDeptInfo.note || ''),
+    handoffTo: targetDept !== null ? targetDept : (existingDeptInfo.handoffTo || ''),
+    handoffAt: Date.now(),
+    handoffBy: state.sess || 'user'
+  };
+
+  const updatePayload = {
+    [dept]: val,
+    deptDetails: deptDetails,
+    updatedAt: Date.now()
+  };
+
+  // Update in memory immediately
+  const updatedClient = {
+    ...client,
+    ...updatePayload
+  };
+  state.C.set(cid, updatedClient);
+
+  try {
+    await db.doc(`clients/${cid}`).update(updatePayload);
+    const deptName = DEPT_LABELS[dept] || dept;
+    if (val === 2 && targetDept) {
+      toast(`تم تسليم مرحلة ${deptName} وتوجيه المهمة إلى ${DEPT_LABELS[targetDept] || targetDept} بنجاح ✓`, 'success');
+    } else {
+      toast(`تم تحديث حالة قسم ${deptName} بنجاح ✓`, 'success');
+    }
+  } catch (err) {
+    console.error('Failed to update dept status:', err);
+    toast('تعذّر حفظ التحديث في السحابة', 'error');
+  }
+}
+
+function openSupabaseSettingsModal() {
+  const isAdmin = state.role === 'owner' || state.me?.isOwner || state.sess === 'admin';
+  if (!isAdmin) return;
+
+  const modal = $('modal-supabase-settings');
+  if (!modal) return;
+  const cfg = getSupabaseConfig();
+  const urlInput = $('supabase-input-url');
+  const keyInput = $('supabase-input-key');
+  const msgEl = $('supabase-status-msg');
+
+  if (urlInput) urlInput.value = cfg?.url || '';
+  if (keyInput) keyInput.value = cfg?.key || '';
+  if (msgEl) {
+    if (cfg?.url && cfg?.key) {
+      msgEl.innerHTML = '<span style="color:var(--success);font-weight:700">⚡ متصل حالياً بقاعدة بيانات Supabase السحابية</span>';
+    } else {
+      msgEl.innerHTML = '<span style="color:var(--text-muted)">لم يتم تفعيل اتصال Supabase بعد. أدخل الرابط والمفتاح للحفظ.</span>';
+    }
+  }
+
+  const closeModal = () => modal.classList.remove('active');
+  $('btn-close-supabase-modal').onclick = closeModal;
+  $('btn-cancel-supabase-modal').onclick = closeModal;
+
+  $('btn-save-supabase-config').onclick = () => {
+    const url = urlInput?.value.trim();
+    const key = keyInput?.value.trim();
+    if (!url || !key) {
+      msgEl.innerHTML = '<span style="color:var(--danger)">يرجى إدخال الرابط والمفتاح معاً</span>';
+      return;
+    }
+    saveSupabaseConfig({ url, key });
+    try {
+      localStorage.setItem('crm_supabase_config', JSON.stringify({ url, key }));
+    } catch {}
+    resetSupabaseClient();
+    toast('تم حفظ إعدادات Supabase وتفعيل الاتصال ⚡', 'success');
+    closeModal();
+    setTimeout(() => {
+      window.location.reload();
+    }, 600);
+  };
+
+  $('btn-disconnect-supabase').onclick = () => {
+    saveSupabaseConfig(null);
+    try {
+      localStorage.removeItem('crm_supabase_config');
+    } catch {}
+    resetSupabaseClient();
+    toast('تم إلغاء الاتصال بالسحابة', 'info');
+    closeModal();
+    setTimeout(() => {
+      window.location.reload();
+    }, 600);
+  };
+
+  modal.classList.add('active');
+  initIcons();
 }
 
 // ----------------- STATS VIEW -----------------
