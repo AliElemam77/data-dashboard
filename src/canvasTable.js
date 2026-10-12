@@ -64,9 +64,10 @@ export class CanvasCustomerTable {
     // Watermark
     this.watermarkEnabled = true;
 
-    // Table Column Definitions (Total Width: 1770px)
+    // Table Column Definitions
     this.columns = [
       { id: 'select', title: '', width: 44, align: 'center', sortable: false },
+      { id: 'index', title: '#', width: 46, align: 'center', sortable: true },
       { id: 'name', title: 'الاسم والنشاط', width: 230, align: 'right', sortable: true },
       { id: 'category', title: 'التصنيف', width: 130, align: 'right', sortable: true },
       { id: 'city', title: 'المدينة', width: 100, align: 'right', sortable: true },
@@ -309,7 +310,7 @@ export class CanvasCustomerTable {
         if (col.hidden) continue;
         this.renderCell(ctx, col, r, st, cid, isSelected, isHovered, col.x, rowY, col.width, rowH, {
           textMain, textMuted, textDim, primary, success, warning, danger, borderSubtle
-        });
+        }, k);
       }
     }
 
@@ -322,10 +323,22 @@ export class CanvasCustomerTable {
   }
 
   // ----------------- CELL RENDERING -----------------
-  renderCell(ctx, col, r, st, cid, isSelected, isHovered, x, y, w, h, colors) {
+  renderCell(ctx, col, r, st, cid, isSelected, isHovered, x, y, w, h, colors, rowDisplayIndex) {
     const centerY = y + Math.floor(h / 2);
 
     switch (col.id) {
+      case 'index': {
+        // Sequential Row Number (1, 2, 3...)
+        ctx.save();
+        ctx.font = '600 12px "Plus Jakarta Sans", monospace';
+        ctx.fillStyle = colors.textDim;
+        ctx.textAlign = 'center';
+        const num = (rowDisplayIndex !== undefined ? rowDisplayIndex + 1 : 1);
+        ctx.fillText(String(num), x + (w / 2), centerY + 4);
+        ctx.restore();
+        break;
+      }
+
       case 'select': {
         // Checkbox (Super admin only)
         if (this.isOwner) {
@@ -407,7 +420,7 @@ export class CanvasCustomerTable {
       }
 
       case 'website': {
-        // Website Badge (🌐 يوجد موقع / ✕ بدون موقع)
+        // Website Badge (يوجد موقع / بدون موقع)
         const hasWeb = r[12] && r[8];
         const isActionHovered = isHovered && (this.hoveredAction === 'web');
         const pillW = 116;
@@ -426,7 +439,7 @@ export class CanvasCustomerTable {
           ctx.font = '700 11.5px "Cairo", sans-serif';
           ctx.fillStyle = colors.success;
           ctx.textAlign = 'center';
-          ctx.fillText('🌐 يوجد موقع', pillX + (pillW / 2), pillY + 17.5);
+          ctx.fillText('يوجد موقع', pillX + (pillW / 2), pillY + 17.5);
         } else {
           ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
           this.fillRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
@@ -439,14 +452,14 @@ export class CanvasCustomerTable {
           ctx.font = '500 11px "Cairo", sans-serif';
           ctx.fillStyle = colors.textDim;
           ctx.textAlign = 'center';
-          ctx.fillText('✕ بدون موقع', pillX + (pillW / 2), pillY + 17.5);
+          ctx.fillText('بدون موقع', pillX + (pillW / 2), pillY + 17.5);
         }
         ctx.restore();
         break;
       }
 
       case 'contacts': {
-        // Location & Quick Contacts: 📍 (Maps), 💬 (WA), 📷 (IG)
+        // Location & Quick Contacts: Maps, WhatsApp, Instagram
         const btnSize = 28;
         const gap = 6;
         const startX = x + Math.floor((w - (btnSize * 3 + gap * 2)) / 2);
@@ -460,9 +473,10 @@ export class CanvasCustomerTable {
         ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, startX, btnY, btnSize, btnSize, 6);
-        ctx.font = '13px sans-serif';
+        ctx.font = '700 9.5px "Cairo", sans-serif';
+        ctx.fillStyle = colors.danger;
         ctx.textAlign = 'center';
-        ctx.fillText('📍', startX + (btnSize / 2), btnY + 19);
+        ctx.fillText('خرائط', startX + (btnSize / 2), btnY + 18);
         ctx.restore();
 
         // 2. WhatsApp (Green)
@@ -474,9 +488,10 @@ export class CanvasCustomerTable {
         ctx.strokeStyle = 'rgba(37, 211, 102, 0.4)';
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, waX, btnY, btnSize, btnSize, 6);
-        ctx.font = '13px sans-serif';
+        ctx.font = '700 9.5px "Cairo", sans-serif';
+        ctx.fillStyle = '#25D366';
         ctx.textAlign = 'center';
-        ctx.fillText('💬', waX + (btnSize / 2), btnY + 19);
+        ctx.fillText('واتس', waX + (btnSize / 2), btnY + 18);
         ctx.restore();
 
         // 3. Instagram (Purple/Pink)
@@ -489,9 +504,10 @@ export class CanvasCustomerTable {
         ctx.strokeStyle = hasIg ? 'rgba(225, 48, 108, 0.35)' : colors.borderSubtle;
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, igX, btnY, btnSize, btnSize, 6);
-        ctx.font = '13px sans-serif';
+        ctx.font = '700 9.5px "Cairo", sans-serif';
+        ctx.fillStyle = hasIg ? '#E1306C' : colors.textDim;
         ctx.textAlign = 'center';
-        ctx.fillText('📷', igX + (btnSize / 2), btnY + 19);
+        ctx.fillText('انستا', igX + (btnSize / 2), btnY + 18);
         ctx.restore();
         break;
       }
@@ -517,7 +533,7 @@ export class CanvasCustomerTable {
           ctx.fillStyle = colors.warning;
           ctx.direction = 'rtl';
           ctx.textAlign = 'right';
-          const noteSnippet = '📝 ' + st.notes;
+          const noteSnippet = st.notes;
           this.renderTruncatedText(ctx, noteSnippet, pillX + pillW - 8, pillY + 17, pillW - 16);
         } else {
           ctx.fillStyle = isNoteHover ? 'rgba(59, 130, 246, 0.12)' : 'rgba(148, 163, 184, 0.05)';
@@ -552,7 +568,7 @@ export class CanvasCustomerTable {
 
       case 'duplicate': {
         // Duplicate flag
-        const isDup = !!r[14];
+        const isDup = !!r[14] || (r.first !== undefined && !r.first);
         ctx.save();
         ctx.font = '700 11px "Cairo", sans-serif';
         ctx.textAlign = 'center';
@@ -587,7 +603,7 @@ export class CanvasCustomerTable {
         ctx.font = '600 11px "Cairo", sans-serif';
         ctx.fillStyle = isSentOn ? colors.primary : colors.textMuted;
         ctx.textAlign = 'center';
-        ctx.fillText((isSentOn ? '✓ ' : '') + 'اتبعت', startX + (chipW / 2), chipY + 17);
+        ctx.fillText('اتبعت', startX + (chipW / 2), chipY + 17);
         ctx.restore();
 
         // 2. Replied (رد)
@@ -603,7 +619,7 @@ export class CanvasCustomerTable {
         ctx.font = '600 11px "Cairo", sans-serif';
         ctx.fillStyle = isRepOn ? colors.warning : colors.textMuted;
         ctx.textAlign = 'center';
-        ctx.fillText((isRepOn ? '✓ ' : '') + 'رد', rX + (chipW / 2), chipY + 17);
+        ctx.fillText('رد', rX + (chipW / 2), chipY + 17);
         ctx.restore();
 
         // 3. Joined (معانا)
@@ -619,7 +635,7 @@ export class CanvasCustomerTable {
         ctx.font = '700 11px "Cairo", sans-serif';
         ctx.fillStyle = isJoinedOn ? colors.success : colors.textMuted;
         ctx.textAlign = 'center';
-        ctx.fillText((isJoinedOn ? '✓ ' : '') + 'معانا', jX + (chipW / 2), chipY + 17);
+        ctx.fillText('معانا', jX + (chipW / 2), chipY + 17);
         ctx.restore();
         break;
       }

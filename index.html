@@ -14,13 +14,18 @@
     <div id="app">
       <!-- App Header -->
       <header class="app-header">
-        <div class="brand">
-          <div class="logo-icon"><i data-lucide="layout-dashboard"></i></div>
-          <span>داشبورد المبيعات والتنفيذ</span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button class="btn-icon mobile-only" id="btn-mobile-menu" aria-label="قائمة التصفح" title="فتح القائمة">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="brand">
+            <div class="logo-icon"><i data-lucide="layout-dashboard"></i></div>
+            <span class="brand-title">داشبورد المبيعات والتنفيذ</span>
+          </div>
         </div>
 
-        <!-- Navigation Tabs -->
-        <nav class="nav-tabs" id="nav-tabs-container" style="display: none;"></nav>
+        <!-- Navigation Tabs (Desktop / Tablet) -->
+        <nav class="nav-tabs desktop-only" id="nav-tabs-container" style="display: none;"></nav>
 
         <!-- Header Actions & User Info -->
         <div class="header-meta">
@@ -38,16 +43,38 @@
           </div>
 
           <!-- Theme Toggle -->
-          <button class="btn-icon" id="btn-theme-toggle" title="تبديل المظهر النهاري/الليلي">
+          <button class="btn-icon" id="btn-theme-toggle" title="تبديل المظهر النهاري/الليلي" aria-label="تبديل المظهر">
             <i data-lucide="moon" id="theme-icon"></i>
           </button>
 
           <!-- Logout Button -->
-          <button class="btn-icon" id="btn-logout" title="تسجيل الخروج" style="display: none;">
+          <button class="btn-icon" id="btn-logout" title="تسجيل الخروج" aria-label="تسجيل الخروج" style="display: none;">
             <i data-lucide="log-out"></i>
           </button>
         </div>
       </header>
+
+      <!-- Mobile Navigation Drawer -->
+      <div class="mobile-nav-overlay" id="mobile-nav-overlay"></div>
+      <aside class="mobile-nav-drawer" id="mobile-nav-drawer" aria-label="القائمة الجانبية للتنقل">
+        <div class="mobile-nav-header">
+          <div class="brand">
+            <div class="logo-icon"><i data-lucide="layout-dashboard"></i></div>
+            <span style="font-size: 15px; font-weight: 800;">لوحة التحكم</span>
+          </div>
+          <button class="btn-icon" id="btn-close-mobile-drawer" aria-label="إغلاق القائمة">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+        <div class="mobile-nav-user" id="mobile-drawer-user-info"></div>
+        <nav class="mobile-nav-links" id="mobile-nav-links"></nav>
+        <div class="mobile-nav-footer">
+          <button class="btn-secondary" id="btn-mobile-drawer-logout" style="width: 100%; justify-content: center;">
+            <i data-lucide="log-out"></i>
+            <span>تسجيل الخروج</span>
+          </button>
+        </div>
+      </aside>
 
       <!-- View: Login -->
       <main class="view-container" id="view-login">
@@ -90,7 +117,10 @@
               <div class="msg" id="admin-login-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px;"></div>
               
               <div style="margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-canvas); border: 1px solid var(--border-subtle); font-size: 12.5px; line-height: 1.6;">
-                <b style="display: block; margin-bottom: 3px; color: var(--primary);">🔒 أمان وتشفير الشيت (AES-256-GCM):</b>
+                <b style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px; color: var(--primary);">
+                  <i data-lucide="lock" style="width: 15px; height: 15px;"></i>
+                  <span>أمان وتشفير الشيت (AES-256-GCM):</span>
+                </b>
                 <div>بيانات العملاء مشفرة بالكامل ولا يمكن لأي شخص الاطلاع عليها أو استخراجها من المتصفح إلا بكلمة المرور المعتمدة.</div>
               </div>
             </div>
@@ -127,67 +157,75 @@
             <div class="search-box">
               <span class="search-icon"><i data-lucide="search"></i></span>
               <input id="search-leads" type="search" placeholder="بحث بالاسم، الرقم، المدينة، النشاط، الشيت..." autocomplete="off" />
-              <button class="clear-btn" id="clear-search-btn"><i data-lucide="x"></i></button>
+              <button class="clear-btn" id="clear-search-btn" aria-label="مسح البحث"><i data-lucide="x"></i></button>
             </div>
 
-            <select class="filter-select" id="filter-sort" title="ترتيب النتائج">
-              <option value="default">ترتيب: الافتراضي</option>
-              <option value="name_asc">ترتيب: الاسم (أ - ي)</option>
-              <option value="name_desc">ترتيب: الاسم (ي - أ)</option>
-              <option value="category">ترتيب: حسب النشاط</option>
-              <option value="city">ترتيب: حسب المدينة</option>
-              <option value="no_web_first">ترتيب: بدون موقع أولاً (فرص مبيعات 🔥)</option>
-              <option value="has_notes_first">ترتيب: بالملاحظات أولاً</option>
-            </select>
-
-            <select class="filter-select" id="filter-sheet">
-              <option value="">كل الشيتات</option>
-            </select>
-
-            <select class="filter-select" id="filter-website">
-              <option value="">كل المواقع (ويبسايت)</option>
-              <option value="no_web">بدون موقع (فرصة مبيعات 🔥)</option>
-              <option value="has_web">يوجد موقع إلكتروني</option>
-            </select>
-
-            <select class="filter-select" id="filter-status">
-              <option value="">كل الحالات</option>
-              <option value="not_sent">لم يتم التواصل بعد (لسه)</option>
-              <option value="sent">تم الإرسال (ماردش)</option>
-              <option value="replied">رد (في مرحلة التفاوض)</option>
-              <option value="joined">تعاقد (دخل معانا)</option>
-            </select>
-
-            <select class="filter-select" id="filter-notes">
-              <option value="">كل الملاحظات</option>
-              <option value="has_notes">يوجد ملاحظات مسجلة</option>
-              <option value="no_notes">بدون ملاحظات</option>
-            </select>
-
-            <select class="filter-select" id="filter-duplicate">
-              <option value="">كل الصفوف</option>
-              <option value="unique">بدون تكرار (أول ظهور)</option>
-              <option value="dup">المكرر فقط</option>
-            </select>
-
-            <select class="filter-select" id="filter-assignee">
-              <option value="">كل المسؤولين</option>
-            </select>
-
-            <select class="filter-select" id="filter-selected">
-              <option value="">الكل</option>
-              <option value="selected">المحدد فقط</option>
-            </select>
-
-            <button class="btn-secondary" id="btn-open-excel-import" title="استيراد شيت إكسيل جديد">
-              <i data-lucide="file-spreadsheet"></i>
-              <span>استيراد ملف إكسيل / CSV</span>
+            <button class="btn-secondary mobile-only" id="btn-toggle-toolbar-filters" title="إظهار / إخفاء خيارات الفلترة">
+              <i data-lucide="sliders-horizontal"></i>
+              <span>الفلاتر والتصفية</span>
             </button>
 
-            <button class="btn-secondary" id="btn-open-bulk-modal" title="توزيع بالعدد">
-              <i data-lucide="zap"></i>
-              <span>توزيع جماعي بالعدد</span>
-            </button>
+            <div class="toolbar-filters-wrap" id="toolbar-filters-wrap">
+              <select class="filter-select" id="filter-sort" title="ترتيب النتائج">
+                <option value="default">ترتيب: الافتراضي (الترقيم 1، 2، 3...)</option>
+                <option value="index_desc">ترتيب: الترقيم عكسي (من الأخير للأول)</option>
+                <option value="name_asc">ترتيب: الاسم (أ - ي)</option>
+                <option value="name_desc">ترتيب: الاسم (ي - أ)</option>
+                <option value="category">ترتيب: حسب النشاط</option>
+                <option value="city">ترتيب: حسب المدينة</option>
+                <option value="no_web_first">ترتيب: بدون موقع أولاً (فرص مبيعات ذات أولوية)</option>
+                <option value="has_notes_first">ترتيب: بالملاحظات أولاً</option>
+              </select>
+
+              <select class="filter-select" id="filter-sheet">
+                <option value="">كل الشيتات</option>
+              </select>
+
+              <select class="filter-select" id="filter-website">
+                <option value="">كل المواقع (ويبسايت)</option>
+                <option value="no_web">بدون موقع (فرصة مبيعات)</option>
+                <option value="has_web">يوجد موقع إلكتروني</option>
+              </select>
+
+              <select class="filter-select" id="filter-status">
+                <option value="">كل الحالات</option>
+                <option value="not_sent">لم يتم التواصل بعد (لسه)</option>
+                <option value="sent">تم الإرسال (ماردش)</option>
+                <option value="replied">رد (في مرحلة التفاوض)</option>
+                <option value="joined">تعاقد (دخل معانا)</option>
+              </select>
+
+              <select class="filter-select" id="filter-notes">
+                <option value="">كل الملاحظات</option>
+                <option value="has_notes">يوجد ملاحظات مسجلة</option>
+                <option value="no_notes">بدون ملاحظات</option>
+              </select>
+
+              <select class="filter-select" id="filter-duplicate">
+                <option value="">كل الصفوف</option>
+                <option value="unique">بدون تكرار (أول ظهور)</option>
+                <option value="dup">المكرر فقط</option>
+              </select>
+
+              <select class="filter-select" id="filter-assignee">
+                <option value="">كل المسؤولين</option>
+              </select>
+
+              <select class="filter-select" id="filter-selected">
+                <option value="">الكل</option>
+                <option value="selected">المحدد فقط</option>
+              </select>
+
+              <button class="btn-secondary" id="btn-open-excel-import" title="استيراد شيت إكسيل جديد">
+                <i data-lucide="file-spreadsheet"></i>
+                <span>استيراد ملف إكسيل / CSV</span>
+              </button>
+
+              <button class="btn-secondary" id="btn-open-bulk-modal" title="توزيع بالعدد">
+                <i data-lucide="zap"></i>
+                <span>توزيع جماعي بالعدد</span>
+              </button>
+            </div>
 
             <span class="sync-badge" id="leads-count-badge" style="margin-inline-start: auto;">
               0 صفوف
@@ -196,7 +234,9 @@
 
           <!-- Empty State -->
           <div id="leads-empty-state" style="display: none; padding: 60px 20px; text-align: center; color: var(--text-muted);">
-            <div style="font-size: 40px; margin-bottom: 12px;">📋</div>
+            <div style="width: 56px; height: 56px; margin: 0 auto 12px; border-radius: var(--radius-lg); background: var(--primary-soft); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+              <i data-lucide="clipboard-list" style="width: 28px; height: 28px;"></i>
+            </div>
             <h3 style="font-size: 18px; color: var(--text-main); margin-bottom: 6px;">لا توجد عملاء موكلة إليك حالياً</h3>
             <p style="font-size: 13.5px;">سيتولى السوبر أدمن إسناد عملاء محددين إليك، وسيظهرون هنا فوراً.</p>
           </div>
@@ -223,11 +263,6 @@
       <!-- View: Users (إدارة فريق العمل) -->
       <main class="view-container" id="view-users" style="padding: 16px 20px; overflow-y: auto;">
         <div id="users-content"></div>
-      </main>
-
-      <!-- View: Settings (الإعدادات والربط السحابي) -->
-      <main class="view-container" id="view-settings" style="padding: 16px 20px; overflow-y: auto;">
-        <div id="settings-content"></div>
       </main>
 
       <!-- ================= FLOATING SELECTION DOCK ================= -->
@@ -366,7 +401,7 @@
               </div>
             </div>
             <div style="font-size: 12px; color: var(--text-dim); line-height: 1.6; background: var(--bg-canvas); padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
-              💡 <b>ملاحظة بخصوص روابط OneDrive:</b> مايكروسوفت تتطلب تسجيل الدخول عند الفتح عبر المتصفح. يمكنك فتح الرابط والضغط على <b>ملف &gt; حفظ باسم &gt; تنزيل نسخة</b> ثم سحب الملف في تبويب "رفع ملف"، أو نشر الشيت عبر Google Sheets للحصول على ربط سحابي مباشر متجدد.
+              <i data-lucide="info" style="width: 14px; height: 14px; vertical-align: middle;"></i> <b>ملاحظة بخصوص روابط OneDrive:</b> مايكروسوفت تتطلب تسجيل الدخول عند الفتح عبر المتصفح. يمكنك فتح الرابط والضغط على <b>ملف &gt; حفظ باسم &gt; تنزيل نسخة</b> ثم سحب الملف في تبويب "رفع ملف"، أو نشر الشيت عبر Google Sheets للحصول على ربط سحابي مباشر متجدد.
             </div>
           </div>
 
@@ -407,9 +442,9 @@
           </div>
           
           <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; padding: 8px 12px; background: var(--bg-canvas); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); display: flex; gap: 14px; flex-wrap: wrap;">
-            <div>🏢 النشاط: <b id="modal-notes-cat" style="color:var(--text-main)">—</b></div>
-            <div>📍 المدينة: <b id="modal-notes-city" style="color:var(--text-main)">—</b></div>
-            <div>📞 الهاتف: <b id="modal-notes-phone" style="direction:ltr;display:inline-block;color:var(--text-main)">—</b></div>
+            <div style="display: flex; align-items: center; gap: 4px;"><i data-lucide="folder" style="width: 14px; height: 14px;"></i> النشاط: <b id="modal-notes-cat" style="color:var(--text-main)">—</b></div>
+            <div style="display: flex; align-items: center; gap: 4px;"><i data-lucide="map-pin" style="width: 14px; height: 14px;"></i> المدينة: <b id="modal-notes-city" style="color:var(--text-main)">—</b></div>
+            <div style="display: flex; align-items: center; gap: 4px;"><i data-lucide="phone" style="width: 14px; height: 14px;"></i> الهاتف: <b id="modal-notes-phone" style="direction:ltr;display:inline-block;color:var(--text-main)">—</b></div>
           </div>
 
           <div class="form-group">
@@ -419,15 +454,15 @@
 
           <!-- Quick Tags -->
           <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;">
-            <button type="button" class="quick-note-tag" data-tag="🔥 مهتم جداً">🔥 مهتم جداً</button>
-            <button type="button" class="quick-note-tag" data-tag="⏰ مطلوب معاودة الاتصال">⏰ مطلوب معاودة الاتصال</button>
-            <button type="button" class="quick-note-tag" data-tag="📄 طلب عرض سعر">📄 طلب عرض سعر</button>
-            <button type="button" class="quick-note-tag" data-tag="🌐 يريد موقع إلكتروني">🌐 يريد موقع</button>
-            <button type="button" class="quick-note-tag" data-tag="✕ غير مهتم حالياً">✕ غير مهتم حالياً</button>
+            <button type="button" class="quick-note-tag" data-tag="مهتم جداً"><i data-lucide="flame"></i> <span>مهتم جداً</span></button>
+            <button type="button" class="quick-note-tag" data-tag="مطلوب معاودة الاتصال"><i data-lucide="clock"></i> <span>مطلوب معاودة الاتصال</span></button>
+            <button type="button" class="quick-note-tag" data-tag="طلب عرض سعر"><i data-lucide="file-text"></i> <span>طلب عرض سعر</span></button>
+            <button type="button" class="quick-note-tag" data-tag="يريد موقع إلكتروني"><i data-lucide="globe"></i> <span>يريد موقع</span></button>
+            <button type="button" class="quick-note-tag" data-tag="غير مهتم حالياً"><i data-lucide="x"></i> <span>غير مهتم حالياً</span></button>
           </div>
 
           <button type="button" class="btn-secondary" id="btn-open-portal-from-notes" style="display:none;background:var(--primary-soft);color:var(--primary);border:1px solid var(--border-glow);margin-bottom:12px;width:100%;justify-content:center;font-weight:700;padding:9px">
-            <i data-lucide="external-link"></i> <span>🚀 فتح بيانات وتفاصيل بوابة تابع (Tab3)</span>
+            <i data-lucide="external-link"></i> <span>فتح بيانات وتفاصيل بوابة تابع (Tab3)</span>
           </button>
 
           <div id="modal-notes-meta" style="font-size: 11.5px; color: var(--text-dim); margin-bottom: 16px; min-height: 18px;"></div>
@@ -444,8 +479,8 @@
         <div class="modal-card" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 20px;">
-                🚀
+              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white;">
+                <i data-lucide="rocket" style="width: 20px; height: 20px;"></i>
               </div>
               <div>
                 <h3 style="font-size: 17px; font-weight: 800; margin: 0;" id="portal-modal-title">إدارة مشروع العميل وبوابة تابع</h3>
@@ -461,7 +496,7 @@
               <b style="font-size: 13.5px; display: flex; align-items: center; gap: 6px; color: var(--primary);">
                 <i data-lucide="key"></i> بيانات دخول العميل (منصة تابع)
               </b>
-              <span class="badge" style="background: var(--success-soft); color: var(--success); font-size: 11px;">مفعلة ونشطة ✓</span>
+              <span class="badge" style="background: var(--success-soft); color: var(--success); font-size: 11px;">مفعلة ونشطة</span>
             </div>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
@@ -473,7 +508,7 @@
                 <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">كلمة المرور (Password):</label>
                 <div style="display: flex; gap: 6px;">
                   <input type="text" id="portal-input-password" style="flex: 1; padding: 8px 10px; font-family: var(--font-latin); direction: ltr; font-weight: 600;" />
-                  <button type="button" id="btn-portal-generate-pw" class="btn-secondary" style="padding: 0 10px;" title="توليد كلمة سر جديدة">🎲</button>
+                  <button type="button" id="btn-portal-generate-pw" class="btn-secondary" style="padding: 0 10px;" title="توليد كلمة سر جديدة" aria-label="توليد كلمة سر"><i data-lucide="dices"></i></button>
                 </div>
               </div>
               <div>
@@ -488,7 +523,7 @@
                 <i data-lucide="copy"></i> <span>نسخ البيانات</span>
               </button>
               <button type="button" id="btn-portal-send-whatsapp" class="btn-primary" style="background: var(--wa-color); border-color: var(--wa-color); flex: 1.2; min-width: 170px; font-size: 12.5px;">
-                <span>💬 إرسال واتساب للعميل</span>
+                <i data-lucide="message-square"></i> <span>إرسال واتساب للعميل</span>
               </button>
               <a id="btn-portal-open-preview" href="http://localhost:5174" target="_blank" class="btn-secondary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;">
                 <i data-lucide="external-link"></i> <span>معاينة كعميل</span>
@@ -500,11 +535,17 @@
           <div style="background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 12px; margin-bottom: 18px;">
             <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px;">
               <div>
-                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">📅 موعد التسليم المتوقع الإجمالي:</label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+                  <i data-lucide="calendar" style="width: 13px; height: 13px;"></i>
+                  <span>موعد التسليم المتوقع الإجمالي:</span>
+                </label>
                 <input type="text" id="portal-input-delivery" placeholder="مثلاً: 25 أكتوبر أو خلال 10 أيام" style="width: 100%; padding: 8px 10px; font-size: 13px;" />
               </div>
               <div>
-                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">💬 رسالة / ملاحظة عامة للعميل في المنصة:</label>
+                <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+                  <i data-lucide="message-square" style="width: 13px; height: 13px;"></i>
+                  <span>رسالة / ملاحظة عامة للعميل في المنصة:</span>
+                </label>
                 <input type="text" id="portal-input-note" placeholder="مثلاً: جاري العمل بكفاءة عالية على تهيئة المتجر والتصميمات..." style="width: 100%; padding: 8px 10px; font-size: 13px;" />
               </div>
             </div>
@@ -522,8 +563,8 @@
         <div class="modal-card" style="max-width: 520px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; font-size: 20px;">
-                ⚡
+              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white;">
+                <i data-lucide="zap" style="width: 20px; height: 20px;"></i>
               </div>
               <div>
                 <h3 style="font-size: 17px; font-weight: 800; margin: 0;">إعدادات السحابة (Supabase)</h3>
@@ -562,8 +603,8 @@
         <div class="modal-card" style="max-width: 500px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: var(--success-soft); color: var(--success); display: flex; align-items: center; justify-content: center; font-size: 18px;">
-                ✓
+              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: var(--success-soft); color: var(--success); display: flex; align-items: center; justify-content: center;">
+                <i data-lucide="check-circle-2" style="width: 20px; height: 20px;"></i>
               </div>
               <div>
                 <h3 style="font-size: 17px; font-weight: 800; margin: 0;" id="handoff-modal-title">تسليم المرحلة والملاحظات</h3>
@@ -581,7 +622,8 @@
 
             <div id="handoff-incoming-banner" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:var(--radius-sm);background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);font-size:12.5px;line-height:1.5;">
               <div style="font-weight:700;color:var(--primary);margin-bottom:4px;display:flex;align-items:center;gap:6px">
-                <span>📩 مهمة موجهة من قسم:</span>
+                <i data-lucide="inbox" style="width: 14px; height: 14px;"></i>
+                <span>مهمة موجهة من قسم:</span>
                 <span id="handoff-incoming-from-name" style="text-decoration:underline">—</span>
               </div>
               <div id="handoff-incoming-note-text" style="color:var(--text-main);font-size:13px;word-break:break-word;">—</div>
@@ -595,21 +637,24 @@
             </div>
 
             <div class="form-group" style="margin-bottom: 12px;">
-              <label style="font-size: 12.5px; font-weight: 700;">📢 توجيه مهمة / إشعار لقسم آخر (اختياري):</label>
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 700;">
+                <i data-lucide="megaphone" style="width: 14px; height: 14px;"></i>
+                <span>توجيه مهمة / إشعار لقسم آخر (اختياري):</span>
+              </label>
               <select id="handoff-select-target" class="filter-select" style="width: 100%; padding: 8px 12px; font-size: 13px;">
                 <option value="">بدون توجيه لقسم آخر</option>
-                <option value="dev">💻 البرمجة والتطوير (Dev)</option>
-                <option value="ui">🎨 التصميم وتجربة المستخدم (UI)</option>
-                <option value="seo">🔍 تهيئة محركات البحث (SEO)</option>
-                <option value="media">🎯 الإعلانات والميديا باير (Media)</option>
-                <option value="social">📱 المحتوى والسوشيال ميديا (Social)</option>
+                <option value="dev">البرمجة والتطوير (Dev)</option>
+                <option value="ui">التصميم وتجربة المستخدم (UI)</option>
+                <option value="seo">تهيئة محركات البحث (SEO)</option>
+                <option value="media">الإعلانات والميديا باير (Media)</option>
+                <option value="social">المحتوى والسوشيال ميديا (Social)</option>
               </select>
             </div>
           </div>
 
           <div class="modal-actions" style="display: flex; gap: 8px;">
             <button class="btn-primary" id="btn-confirm-handoff" style="flex: 1; justify-content: center;">
-              <i data-lucide="check"></i> <span>تأكيد وحفظ التسليم ✓</span>
+              <i data-lucide="check"></i> <span>تأكيد وحفظ التسليم</span>
             </button>
             <button class="btn-secondary" id="btn-cancel-handoff">إلغاء</button>
           </div>

@@ -61,9 +61,10 @@ export function toast(msg, type = 'info') {
   if (!container) return;
   const el = document.createElement('div');
   el.className = 'toast-msg';
-  const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ';
-  el.innerHTML = `<span>${icon}</span> <span>${esc(msg)}</span>`;
+  const icon = type === 'success' ? 'check-circle-2' : type === 'error' ? 'x-circle' : 'info';
+  el.innerHTML = `<i data-lucide="${icon}"></i> <span>${esc(msg)}</span>`;
   container.appendChild(el);
+  initIcons();
   setTimeout(() => {
     el.style.opacity = '0';
     el.style.transform = 'translateY(10px)';
@@ -113,7 +114,7 @@ function setupSecurityProtection() {
       if (e.clipboardData) {
         e.clipboardData.setData('text/plain', '');
       }
-      toast('نسخ أو استخراج بيانات العملاء غير مسموح لدواعي الأمان والسرية 🔒', 'warning');
+      toast('نسخ أو استخراج بيانات العملاء غير مسموح لدواعي الأمان والسرية', 'warning');
     }, { capture: true });
   });
 
@@ -124,7 +125,7 @@ function setupSecurityProtection() {
 
     if ((e.ctrlKey || e.metaKey) && ['c', 'x', 'a', 's', 'p', 'u'].includes(k) && !isInput) {
       e.preventDefault();
-      toast('النسخ والطباعة وحفظ الصفحة معطل للحفاظ على سرية العملاء 🔒', 'warning');
+      toast('النسخ والطباعة وحفظ الصفحة معطل للحفاظ على سرية العملاء', 'warning');
       return;
     }
 
@@ -279,7 +280,7 @@ async function seedDefaultUsers() {
           dev: { status: 1, assignee: 'عمر', deadline: '28 أكتوبر 2026', note: 'برمجة وتخصيص المتجر، ربط بوابات تمارا وتابي والدفع الإلكتروني' },
           ui: { status: 2, assignee: 'ياسين', deadline: '12 أكتوبر 2026', note: 'تم تسليم كافة تصاميم الواجهات والبانرات الإعلانية بنجاح' }
         },
-        clientNote: 'يسير العمل على مشروعكم بشكل ممتاز ومتقدم عن الجدول الزمني المخطط له! 🚀',
+        clientNote: 'يسير العمل على مشروعكم بشكل ممتاز ومتقدم عن الجدول الزمني المخطط له!',
         expectedDelivery: '30 أكتوبر 2026'
       });
     }
@@ -347,6 +348,22 @@ function getMyRole() {
   return prof ? prof.role : '';
 }
 
+export function openMobileDrawer() {
+  const drawer = $('mobile-nav-drawer');
+  const overlay = $('mobile-nav-overlay');
+  if (drawer) drawer.classList.add('active');
+  if (overlay) overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+export function closeMobileDrawer() {
+  const drawer = $('mobile-nav-drawer');
+  const overlay = $('mobile-nav-overlay');
+  if (drawer) drawer.classList.remove('active');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
 function renderApp() {
   state.role = getMyRole();
 
@@ -354,13 +371,16 @@ function renderApp() {
   if (!state.me?.isOwner && !state.sess) {
     showView('login');
     $('nav-tabs-container').style.display = 'none';
+    if ($('btn-mobile-menu')) $('btn-mobile-menu').style.display = 'none';
     $('header-user-info').style.display = 'none';
     $('btn-logout').style.display = 'none';
     if ($('sync-status-badge')) $('sync-status-badge').style.display = 'none';
+    closeMobileDrawer();
     initIcons();
     return;
   }
 
+  if ($('btn-mobile-menu')) $('btn-mobile-menu').style.display = '';
   $('btn-logout').style.display = 'flex';
   $('header-user-info').style.display = 'flex';
   $('nav-tabs-container').style.display = 'flex';
@@ -376,6 +396,19 @@ function renderApp() {
   $('user-name-display').textContent = userDisplayName;
   $('user-role-badge').textContent = roleTitle;
 
+  const drawerUserInfo = $('mobile-drawer-user-info');
+  if (drawerUserInfo) {
+    drawerUserInfo.innerHTML = `
+      <div style="width: 38px; height: 38px; border-radius: 50%; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0;">
+        <i data-lucide="user"></i>
+      </div>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 800; font-size: 14px; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${esc(userDisplayName)}</div>
+        <div style="font-size: 11.5px; color: var(--primary); font-weight: 700;">${esc(roleTitle)}</div>
+      </div>
+    `;
+  }
+
   setupAssignmentListener();
   renderTabs();
   showView(state.view);
@@ -385,51 +418,71 @@ function renderApp() {
   else if (state.view === 'clients') renderClientsView();
   else if (state.view === 'stats') renderStatsView();
   else if (state.view === 'users') renderUsersView();
-  else if (state.view === 'settings') renderSettingsView();
 
   initIcons();
 }
 
 function renderTabs() {
   const container = $('nav-tabs-container');
+  const drawerLinks = $('mobile-nav-links');
   const tabs = [];
 
   if (state.role === 'owner') {
     tabs.push(
-      { id: 'leads', label: 'العملاء المحتملين', icon: 'users' },
-      { id: 'clients', label: 'التنفيذ والمشاريع', icon: 'briefcase' },
-      { id: 'stats', label: 'الإحصائيات', icon: 'bar-chart-3' },
-      { id: 'users', label: 'فريق العمل', icon: 'user-check' },
-      { id: 'settings', label: 'إعدادات السحابة', icon: 'settings' }
+      { id: 'leads', label: 'العملاء المحتملين', shortLabel: 'العملاء', icon: 'users' },
+      { id: 'clients', label: 'التنفيذ والمشاريع', shortLabel: 'التنفيذ', icon: 'briefcase' },
+      { id: 'stats', label: 'الإحصائيات', shortLabel: 'الإحصائيات', icon: 'bar-chart-3' },
+      { id: 'users', label: 'فريق العمل', shortLabel: 'الفريق', icon: 'user-check' }
     );
   } else if (state.role === 'sales') {
     tabs.push(
-      { id: 'leads', label: 'عملاء المبيعات المحتملين', icon: 'users' },
-      { id: 'clients', label: 'التنفيذ والمشاريع', icon: 'briefcase' }
+      { id: 'leads', label: 'عملاء المبيعات المحتملين', shortLabel: 'العملاء', icon: 'users' },
+      { id: 'clients', label: 'التنفيذ والمشاريع', shortLabel: 'التنفيذ', icon: 'briefcase' }
     );
   } else if (DEPTS.includes(state.role)) {
-    tabs.push({ id: 'clients', label: 'مشاريع التنفيذ', icon: 'briefcase' });
+    tabs.push({ id: 'clients', label: 'مشاريع التنفيذ', shortLabel: 'التنفيذ', icon: 'briefcase' });
   }
 
   if (!tabs.some(t => t.id === state.view)) {
     state.view = tabs[0]?.id || 'leads';
   }
 
-  container.innerHTML = tabs.map(t => `
-    <button class="tab-btn ${t.id === state.view ? 'active' : ''}" data-tab="${t.id}">
-      <i data-lucide="${t.icon}"></i>
-      <span>${t.label}</span>
-    </button>
-  `).join('');
+  // 1. Desktop Nav Tabs
+  if (container) {
+    container.innerHTML = tabs.map(t => `
+      <button class="tab-btn ${t.id === state.view ? 'active' : ''}" data-tab="${t.id}">
+        <i data-lucide="${t.icon}"></i>
+        <span>${t.label}</span>
+      </button>
+    `).join('');
+
+    container.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.onclick = () => {
+        state.view = btn.dataset.tab;
+        renderApp();
+      };
+    });
+  }
+
+  // 2. Mobile Nav Drawer Links
+  if (drawerLinks) {
+    drawerLinks.innerHTML = tabs.map(t => `
+      <button class="mobile-nav-item ${t.id === state.view ? 'active' : ''}" data-tab="${t.id}">
+        <i data-lucide="${t.icon}"></i>
+        <span>${t.label}</span>
+      </button>
+    `).join('');
+
+    drawerLinks.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.onclick = () => {
+        state.view = btn.dataset.tab;
+        closeMobileDrawer();
+        renderApp();
+      };
+    });
+  }
 
   initIcons();
-
-  container.querySelectorAll('[data-tab]').forEach(btn => {
-    btn.onclick = () => {
-      state.view = btn.dataset.tab;
-      renderApp();
-    };
-  });
 }
 
 function showView(viewId) {
@@ -472,11 +525,11 @@ function setupAssignmentListener() {
         .sort((a, b) => a.k - b.k)
         .forEach(x => {
           (x.rows || []).forEach(r => {
-            r.first = true;
             rows.push(r);
           });
         });
       state.S = rows;
+      markFirstOccurrences();
     }
     renderLater();
   });
@@ -514,19 +567,25 @@ function renderLeadsView() {
       lockEl.className = 'lock-screen-container';
       lockEl.innerHTML = `
         <div class="lock-screen-card">
-          <div style="font-size: 52px; margin-bottom: 14px;">🔒</div>
+          <div style="width: 56px; height: 56px; margin: 0 auto 14px; border-radius: var(--radius-lg); background: var(--primary-soft); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+            <i data-lucide="lock" style="width: 30px; height: 30px;"></i>
+          </div>
           <h2 style="font-size: 21px; font-weight: 800; margin-bottom: 8px;">بيانات العملاء مشفرة بالكامل</h2>
           <p style="color: var(--text-muted); font-size: 13.5px; line-height: 1.6; margin-bottom: 22px;">
             لحماية البيانات ومنع استخراجها أو نسخها، تم قفل الـ 11,149 عميل بتشفير عسكري (AES-256-GCM). لن يتم تحميل أي صفوف في الـ DOM إلا بعد إدخال الباسورد.
           </p>
           <div style="display: flex; gap: 8px; max-width: 380px; margin: 0 auto;">
             <input id="leads-unlock-pw" type="password" placeholder="اكتب الباسورد لفك التشفير..." style="flex: 1; margin-bottom: 0;" autocomplete="off" />
-            <button id="btn-leads-unlock" class="btn-primary" style="height: 44px; padding: 0 22px; flex-shrink: 0;">فتح 🔓</button>
+            <button id="btn-leads-unlock" class="btn-primary" style="height: 44px; padding: 0 20px; flex-shrink: 0; display: inline-flex; align-items: center; gap: 6px;">
+              <i data-lucide="key-round"></i>
+              <span>فك القفل</span>
+            </button>
           </div>
           <div id="leads-unlock-msg" class="msg" style="color: var(--danger); font-size: 13px; margin-top: 12px; min-height: 20px;"></div>
         </div>
       `;
       $('view-leads').appendChild(lockEl);
+      initIcons();
 
       const unlockAction = async () => {
         const pw = $('leads-unlock-pw').value.trim();
@@ -535,22 +594,24 @@ function renderLeadsView() {
         if (!pw) { msg.textContent = 'اكتب كلمة المرور أولاً'; return; }
         const btn = $('btn-leads-unlock');
         btn.disabled = true;
-        btn.textContent = '⏳ جاري الفك...';
+        btn.innerHTML = `<i data-lucide="refresh-cw" class="spin"></i> <span>جاري فك التشفير...</span>`;
+        initIcons();
         try {
           const data = await decryptAll(pw);
           state.D = data;
           state.S = [...data.rows];
           markFirstOccurrences();
           sessionStorage.setItem('crm_admin_pw', pw);
-          toast(`تم فك تشفير ${state.S.length.toLocaleString('en')} عميل بنجاح! 🎉`, 'success');
+          toast(`تم فك تشفير ${state.S.length.toLocaleString('en')} عميل بنجاح`, 'success');
           lockEl.remove();
           $('leads-main-content').style.display = 'flex';
           renderLeadsView();
         } catch (e) {
-          msg.textContent = '❌ كلمة المرور غير صحيحة! لن يتم عرض أي بيانات.';
+          msg.textContent = 'كلمة المرور غير صحيحة! لن يتم عرض أي بيانات.';
         } finally {
           btn.disabled = false;
-          btn.textContent = 'فتح 🔓';
+          btn.innerHTML = `<i data-lucide="key-round"></i> <span>فك القفل</span>`;
+          initIcons();
         }
       };
 
@@ -592,12 +653,23 @@ function renderLeadsView() {
 
 // Mark first occurrences to detect duplicate leads
 function markFirstOccurrences() {
-  const seen = new Set();
+  const seenPhones = new Set();
   state.byCid.clear();
   state.S.forEach(r => {
-    r.first = !seen.has(r[0]);
-    if (r.first) state.byCid.set(r[0], r);
-    seen.add(r[0]);
+    state.byCid.set(r[0], r);
+
+    const rawPhone = (r[6] || '').trim();
+    const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+    const isPhoneDup = cleanPhone.length > 7 && seenPhones.has(cleanPhone);
+    const isMarkedDup = !!r[14];
+
+    // Duplicate if marked in dataset or if phone number already occurred
+    const isDup = isMarkedDup || isPhoneDup;
+    r.first = !isDup;
+
+    if (cleanPhone.length > 7) {
+      seenPhones.add(cleanPhone);
+    }
   });
 }
 
@@ -646,6 +718,10 @@ function filterLeads() {
 
   state.filteredIndices = [];
 
+  if (state.S.length > 0 && state.S[0]?.first === undefined) {
+    markFirstOccurrences();
+  }
+
   for (let i = 0; i < state.S.length; i++) {
     const r = state.S[i];
     const cid = r[0];
@@ -663,8 +739,9 @@ function filterLeads() {
     if (fnotes === 'no_notes' && st.notes) continue;
 
     // Duplicate filter
-    if (fd === 'unique' && !r.first) continue;
-    if (fd === 'dup' && r.first) continue;
+    const isDup = !!r[14] || !r.first;
+    if (fd === 'unique' && isDup) continue;
+    if (fd === 'dup' && !isDup) continue;
 
     // Assignee filter (Super Admin)
     if (fa) {
@@ -706,6 +783,7 @@ function filterLeads() {
     state.filteredIndices.sort((a, b) => {
       const ra = state.S[a];
       const rb = state.S[b];
+      if (fsort === 'index_desc') return b - a;
       if (fsort === 'name_asc') return (ra[3] || '').localeCompare(rb[3] || '', 'ar');
       if (fsort === 'name_desc') return (rb[3] || '').localeCompare(ra[3] || '', 'ar');
       if (fsort === 'category') return (ra[4] || '').localeCompare(rb[4] || '', 'ar');
@@ -791,6 +869,9 @@ function renderCanvasTable() {
 
 function sortLeadsByColumn(colId, asc) {
   state.filteredIndices.sort((idxA, idxB) => {
+    if (colId === 'index') {
+      return asc ? (idxA - idxB) : (idxB - idxA);
+    }
     const rA = state.S[idxA];
     const rB = state.S[idxB];
     if (!rA || !rB) return 0;
@@ -819,8 +900,8 @@ function sortLeadsByColumn(colId, asc) {
         valB = rB[12] ? (rB[8] || '1') : '';
         break;
       case 'duplicate':
-        valA = rA[14] ? '1' : '0';
-        valB = rB[14] ? '1' : '0';
+        valA = (rA[14] || !rA.first) ? '1' : '0';
+        valB = (rB[14] || !rB.first) ? '1' : '0';
         break;
       case 'assignee':
         valA = state.A.get(rA[0]) || '';
@@ -924,7 +1005,7 @@ function openQuickAssignDialog(cid, clientName) {
     toast('جاري تحديث الإسناد...');
     try {
       await applyAssign([cid], targetUser || null);
-      toast('تم تحديث التعيين بنجاح ✓', 'success');
+      toast('تم تحديث التعيين بنجاح', 'success');
     } catch {
       toast('تعذّر حفظ التعيين', 'error');
     }
@@ -1047,7 +1128,7 @@ function setupNotesModalEvents() {
           noteBy: currentUid,
           noteAt: now
         }, { merge: true });
-        toast('تم حفظ ملاحظات العميل بنجاح ✓', 'success');
+        toast('تم حفظ ملاحظات العميل بنجاح', 'success');
       } catch (err) {
         console.error('Error saving notes:', err);
         toast('تم الحفظ في الجلسة المحلية (غير متصل بالسحاب)', 'info');
@@ -1129,7 +1210,7 @@ async function handleDockAssignSelected() {
     state.selectedCids.clear();
     renderSelectionDock();
     renderCanvasTable();
-    toast(`تم إسناد ${count} عميل بنجاح إلى ${nm(targetUser)} ✓`, 'success');
+    toast(`تم إسناد ${count} عميل بنجاح إلى ${nm(targetUser)}`, 'success');
   } catch (err) {
     console.error(err);
     toast('حدث خطأ أثناء الإسناد، يرجى المحاولة مرة أخرى', 'error');
@@ -1154,7 +1235,7 @@ async function handleDockUnassignSelected() {
     state.selectedCids.clear();
     renderSelectionDock();
     renderCanvasTable();
-    toast(`تم إلغاء تعيين ${count} عميل بنجاح ✓`, 'success');
+    toast(`تم إلغاء تعيين ${count} عميل بنجاح`, 'success');
   } catch {
     toast('حدث خطأ أثناء العملية', 'error');
   }
@@ -1203,7 +1284,7 @@ async function handleBulkCountAssign() {
   toast('جاري حفظ التعيينات...');
   try {
     await applyAssign(toAssign, targetUser);
-    toast(`تم إسناد ${toAssign.length} عميل بنجاح ✓`, 'success');
+    toast(`تم إسناد ${toAssign.length} عميل بنجاح`, 'success');
   } catch {
     toast('فشلت العملية', 'error');
   }
@@ -1296,7 +1377,7 @@ async function toggleStage(row, stageKey) {
         clientNote: 'أهلاً بك! تم تأكيد انضمامك ويبدأ فريق العمل في تجهيز ومتابعة مشروعك الآن.',
         expectedDelivery: ''
       });
-      toast(`تمت إضافة ${row[3]} وتفعيل حسابه على منصة تابع ✓`, 'success');
+      toast(`تمت إضافة ${row[3]} وتفعيل حسابه على منصة تابع`, 'success');
       setTimeout(() => {
         openClientPortalModal(cid);
       }, 400);
@@ -1329,30 +1410,31 @@ function renderKPIs() {
   const cards = [];
   if (state.role === 'owner') {
     cards.push(
-      { label: 'إجمالي العملاء', val: state.S.length, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', icon: '👥' },
-      { label: 'العملاء المعيّنون', val: state.A.size, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)', icon: '⚡' }
+      { label: 'إجمالي العملاء', val: state.S.length, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', icon: 'users' },
+      { label: 'العملاء المعيّنون', val: state.A.size, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)', icon: 'zap' }
     );
   } else {
     cards.push(
-      { label: 'العملاء المعيّنون لك', val: state.S.length, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', icon: '📋' }
+      { label: 'العملاء المعيّنون لك', val: state.S.length, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', icon: 'clipboard-list' }
     );
   }
 
   cards.push(
-    { label: 'تم التواصل (اتبعت)', val: sentCount, color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.15)', icon: '📤' },
-    { label: 'تفاعلوا (ردوا)', val: repliedCount, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', icon: '💬' },
-    { label: 'تعاقدوا (دخلوا معانا)', val: joinedCount, color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)', icon: '🎉' }
+    { label: 'تم التواصل (اتبعت)', val: sentCount, color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.15)', icon: 'share-2' },
+    { label: 'تفاعلوا (ردوا)', val: repliedCount, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', icon: 'message-square' },
+    { label: 'تعاقدوا (دخلوا معانا)', val: joinedCount, color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)', icon: 'check-circle-2' }
   );
 
   $('leads-kpis').innerHTML = cards.map(c => `
     <div class="kpi-card" style="--kpi-color: ${c.color}; --kpi-bg: ${c.bg}">
-      <div class="kpi-icon">${c.icon}</div>
+      <div class="kpi-icon"><i data-lucide="${c.icon}"></i></div>
       <div class="kpi-info">
         <span>${c.label}</span>
         <b>${c.val.toLocaleString('en')}</b>
       </div>
     </div>
   `).join('');
+  initIcons();
 }
 
 // Helper: Ensure client has Tab3 portal credentials and task structure
@@ -1360,16 +1442,30 @@ function ensureClientPortalCreds(cid, client) {
   if (!client) return null;
   let modified = false;
   const copy = { ...client };
-  if (!copy.portalUsername) {
+
+  const existingUsername = copy.portalUsername || copy.portal_username;
+  if (!existingUsername) {
     const cleanPhone = (copy.phone || '').replace(/[^0-9]/g, '');
     copy.portalUsername = cleanPhone || `client_${cid}`;
+    copy.portal_username = copy.portalUsername;
     modified = true;
+  } else {
+    copy.portalUsername = existingUsername;
+    copy.portal_username = existingUsername;
   }
-  if (!copy.portalPassword) {
+
+  const existingPassword = copy.portalPassword || copy.portal_password;
+  if (!existingPassword) {
     copy.portalPassword = Math.floor(100000 + Math.random() * 900000).toString();
+    copy.portal_password = copy.portalPassword;
     modified = true;
+  } else {
+    copy.portalPassword = existingPassword;
+    copy.portal_password = existingPassword;
   }
-  if (!copy.deptDetails) {
+
+  const existingDeptDetails = copy.deptDetails || copy.dept_details;
+  if (!existingDeptDetails || Object.keys(existingDeptDetails).length === 0) {
     copy.deptDetails = {
       seo: { assignee: '', deadline: '', note: '' },
       media: { assignee: '', deadline: '', note: '' },
@@ -1377,12 +1473,23 @@ function ensureClientPortalCreds(cid, client) {
       dev: { assignee: '', deadline: '', note: '' },
       ui: { assignee: '', deadline: '', note: '' }
     };
+    copy.dept_details = copy.deptDetails;
     modified = true;
+  } else {
+    copy.deptDetails = existingDeptDetails;
+    copy.dept_details = existingDeptDetails;
   }
-  if (!copy.clientNote) {
+
+  const existingNote = copy.clientNote !== undefined ? copy.clientNote : copy.client_note;
+  if (!existingNote && existingNote !== '') {
     copy.clientNote = 'أهلاً بك! تم تأكيد انضمامك ويبدأ فريق العمل في تجهيز ومتابعة مشروعك الآن.';
+    copy.client_note = copy.clientNote;
     modified = true;
+  } else {
+    copy.clientNote = existingNote || '';
+    copy.client_note = copy.clientNote;
   }
+
   if (modified) {
     db.doc(`clients/${cid}`).update(copy).catch(console.error);
   }
@@ -1400,46 +1507,35 @@ function renderClientsView() {
   if (!rows.length) {
     container.innerHTML = `
       <div class="card" style="text-align:center;padding:40px;color:var(--text-muted)">
-        <div style="font-size:36px;margin-bottom:10px">🚀</div>
+        <div style="width: 52px; height: 52px; margin: 0 auto 12px; border-radius: var(--radius-lg); background: var(--primary-soft); display: flex; align-items: center; justify-content: center; color: var(--primary);">
+          <i data-lucide="briefcase" style="width: 28px; height: 28px;"></i>
+        </div>
         <b>لا يوجد عملاء منضمين حالياً.</b>
         <p style="margin-top:6px;font-size:13px">بمجرد قيام السيلز بتعليم عميل "معانا"، سيظهر هنا لتبدأ أقسام التنفيذ العمل عليه وتفعيل حسابه في منصة تابع.</p>
       </div>`;
+    initIcons();
     return;
   }
 
   const isAdmin = state.role === 'owner' || state.me?.isOwner || state.sess === 'admin';
 
-  let html = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+  let headerSummaryHtml = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div style="display:flex;align-items:center;gap:10px;">
         <span style="font-weight:700">${rows.length} عميل في مرحلة التنفيذ ${isAdmin ? 'ومربوطين بـ تابع' : ''}</span>
         ${isAdmin ? '<span class="badge" style="background:var(--primary-soft);color:var(--primary);font-size:11px;">مزامنة لحظية Live Sync</span>' : ''}
       </div>
       <span style="font-size:12.5px;color:var(--text-muted)">الحالات: 0 = لسه | 1 = شغّال | 2 = خلص</span>
     </div>
-    <div class="standard-table-wrapper">
-      <table class="standard-table">
-        <thead>
-          <tr>
-            <th>العميل</th>
-            <th>النشاط</th>
-            <th>المدينة</th>
-            ${isAdmin ? `<th>الرقم</th>` : ''}
-            ${isAdmin ? `<th>بوابة تابع 🚀</th>` : ''}
-            <th>الموقع 🌐</th>
-            <th>بواسطة</th>
-            ${DEPTS.map(d => `<th>${DEPT_LABELS[d]}</th>`).join('')}
-            ${isAdmin ? `<th>إدارة المهام</th>` : ''}
-          </tr>
-        </thead>
-        <tbody>
   `;
 
+  // 1. Mobile Cards View (< 768px)
+  let mobileCardsHtml = `<div class="delivery-mobile-cards mobile-only">`;
   rows.forEach(([id, x]) => {
     const rawP = (x.phone || '').trim();
     const maskedPhone = rawP.length > 5 ? rawP.substring(0, 3) + '••••' + rawP.slice(-2) : (rawP ? '••••••••' : '—');
     const cleanPhone = (x.phone || '').replace(/[^0-9]/g, '');
-    const waMsg = `مرحباً بك ${x.name || ''} 👋\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة ومن يعمل عليها عبر منصة "تابع":\n🌐 رابط المنصة: http://localhost:5174\n👤 اسم المستخدم: ${x.portalUsername}\n🔑 كلمة المرور: ${x.portalPassword}\n\nشكراً لثقتك بنا! ✨`;
+    const waMsg = `مرحباً بك ${x.name || ''}\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة ومن يعمل عليها عبر منصة "تابع":\nرابط المنصة: http://localhost:5174\nاسم المستخدم: ${x.portalUsername}\nكلمة المرور: ${x.portalPassword}\n\nشكراً لثقتك بنا!`;
     const waShareUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMsg)}`;
 
     const rawSite = (x.site || '').trim();
@@ -1455,36 +1551,154 @@ function renderClientsView() {
     const hasSite = !isInvalidSite;
     const siteUrl = hasSite ? (rawSite.startsWith('http') ? rawSite : 'https://' + rawSite) : '';
 
-    html += `
-      <tr>
-        <td><b>${esc(x.name || 'بدون اسم')}</b></td>
-        <td>${esc(x.cat || '—')}</td>
-        <td>${esc(x.city || '—')}</td>
-        ${isAdmin ? `<td style="direction:ltr;font-family:var(--font-latin);color:var(--text-muted);font-weight:600">${maskedPhone}</td>` : ''}
-        ${isAdmin ? `
-        <td style="white-space:nowrap">
-          <div style="display:flex;flex-direction:column;gap:3px">
-            <div style="display:flex;gap:4px;font-size:11px;direction:ltr;font-family:var(--font-latin)">
-              <span style="background:var(--bg-canvas);padding:2px 5px;border-radius:4px;border:1px solid var(--border-subtle);color:var(--primary);font-weight:600">👤 ${esc(x.portalUsername)}</span>
-              <span style="background:var(--bg-canvas);padding:2px 5px;border-radius:4px;border:1px solid var(--border-subtle);color:var(--warning);font-weight:600">🔑 ${esc(x.portalPassword)}</span>
-            </div>
-            <div style="display:flex;gap:4px">
-              <button class="btn-xs btn-secondary btn-copy-portal" data-client-id="${id}" title="نسخ بيانات الدخول ورابط تابع">📋 نسخ</button>
-              <a href="${waShareUrl}" target="_blank" class="btn-xs btn-primary" style="background:var(--wa-color);border-color:var(--wa-color);text-decoration:none" title="إرسال بيانات الدخول واتساب">💬 واتساب</a>
+    mobileCardsHtml += `
+      <div class="client-mobile-card">
+        <div class="client-mobile-header">
+          <div style="flex: 1; min-width: 0;">
+            <div class="client-mobile-title">${esc(x.name || 'بدون اسم')}</div>
+            <div class="client-mobile-badges">
+              <span class="client-meta-chip"><i data-lucide="folder"></i> <span>${esc(x.cat || '—')}</span></span>
+              <span class="client-meta-chip"><i data-lucide="map-pin"></i> <span>${esc(x.city || '—')}</span></span>
             </div>
           </div>
-        </td>` : ''}
+          <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px;">
+            ${hasSite 
+              ? `<a href="${siteUrl}" target="_blank" rel="noopener noreferrer" class="link-btn web" title="زيارة الموقع: ${esc(rawSite)}" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:6px;background:rgba(59,130,246,0.12);color:var(--primary);font-size:12px;font-weight:700;border:1px solid rgba(59,130,246,0.25)">
+                  <i data-lucide="globe"></i> <span>الموقع</span>
+                </a>`
+              : `<button class="btn-xs btn-secondary btn-create-site" data-client-id="${id}" title="العميل ليس لديه موقع - انقر لتسجيل رابط الموقع" style="background:rgba(245,158,11,0.15);color:var(--warning);border:1px dashed rgba(245,158,11,0.35);font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer">
+                  <i data-lucide="plus"></i> <span>إنشاء موقع</span>
+                </button>`
+            }
+            ${isAdmin ? `
+              <button class="btn-xs btn-primary btn-edit-portal" data-client-id="${id}" title="إدارة بيانات الدخول وبوابة تابع" style="padding:5px 9px;font-size:11.5px;font-weight:700;border-radius:6px;display:inline-flex;align-items:center;gap:4px">
+                <i data-lucide="shield-check" style="width:13px;height:13px"></i> <span>تابع</span>
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="client-mobile-depts">
+          ${DEPTS.map(d => {
+            const val = x[d] || 0;
+            const canEdit = state.role === 'owner' || state.role === d;
+            const details = x.deptDetails?.[d] || {};
+            let incomingFrom = null;
+            let incomingNote = '';
+            if (x.deptDetails) {
+              for (const [fromD, info] of Object.entries(x.deptDetails)) {
+                if (fromD !== d && info?.handoffTo === d && info?.note) {
+                  incomingFrom = fromD;
+                  incomingNote = info.note;
+                  break;
+                }
+              }
+            }
+            let handoffBadge = '';
+            if (incomingFrom) {
+              handoffBadge += `
+                <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${incomingFrom}" title="مهمة موجهة من ${DEPT_LABELS[incomingFrom] || incomingFrom}: ${esc(incomingNote)}" style="margin-top:3px;font-size:10px;background:rgba(59,130,246,0.18);color:var(--primary);border:1px solid rgba(59,130,246,0.35);padding:3px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">
+                  <i data-lucide="inbox"></i> <span>من ${DEPT_LABELS[incomingFrom] || incomingFrom}</span>
+                </div>`;
+            }
+            if (details.note) {
+              handoffBadge += `
+                <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${d}" title="الملاحظة: ${esc(details.note)}" style="margin-top:3px;font-size:10px;background:rgba(16,185,129,0.15);color:var(--success);border:1px solid rgba(16,185,129,0.3);padding:3px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">
+                  <i data-lucide="file-text"></i> <span>ملاحظة ${details.handoffTo ? '→ ' + (DEPT_LABELS[details.handoffTo] || details.handoffTo) : ''}</span>
+                </div>`;
+            }
+
+            return `
+              <div class="client-dept-item">
+                <div class="client-dept-header">
+                  <span>${DEPT_LABELS[d]}</span>
+                </div>
+                ${canEdit ? `
+                  <select class="dept-status-select dept-status-${val}" data-client-id="${id}" data-dept="${d}">
+                    <option value="0" ${val === 0 ? 'selected' : ''}>لسه</option>
+                    <option value="1" ${val === 1 ? 'selected' : ''}>شغّال</option>
+                    <option value="2" ${val === 2 ? 'selected' : ''}>خلص</option>
+                  </select>
+                ` : `
+                  <span class="dept-status-select dept-status-${val}">${['لسه', 'شغّال', 'خلص'][val]}</span>
+                `}
+                ${handoffBadge}
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--text-dim);padding-top:4px;border-top:1px solid var(--border-subtle)">
+          <div style="display:flex;align-items:center;gap:4px">
+            <i data-lucide="user"></i> <span>بواسطة: ${esc(nm(x.by))}</span>
+          </div>
+          <div>${fmt(x.at)}</div>
+        </div>
+      </div>
+    `;
+  });
+  mobileCardsHtml += `</div>`;
+
+  // 2. Desktop Standard Table View (>= 768px)
+  let desktopTableHtml = `
+    <div class="standard-table-wrapper desktop-only">
+      <table class="standard-table">
+        <thead>
+          <tr>
+            <th style="width: 44px; text-align: center;">#</th>
+            <th style="min-width: 220px;">العميل والتصنيف</th>
+            <th style="min-width: 100px;">الموقع</th>
+            <th style="min-width: 130px;">بواسطة</th>
+            ${DEPTS.map(d => `<th style="text-align: center; min-width: 100px;">${DEPT_LABELS[d]}</th>`).join('')}
+            ${isAdmin ? `<th style="text-align: center; min-width: 130px;">بوابة تابع</th>` : ''}
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  rows.forEach(([id, x], rowIdx) => {
+    const rawSite = (x.site || '').trim();
+    const isInvalidSite = !rawSite || 
+      rawSite === '—' || 
+      rawSite === '-' || 
+      rawSite.toLowerCase() === 'none' || 
+      rawSite.toLowerCase() === 'n/a' || 
+      rawSite === 'لا يوجد' || 
+      rawSite === 'بدون' || 
+      rawSite === 'انشاء' || 
+      rawSite === 'إنشاء';
+    const hasSite = !isInvalidSite;
+    const siteUrl = hasSite ? (rawSite.startsWith('http') ? rawSite : 'https://' + rawSite) : '';
+
+    desktopTableHtml += `
+      <tr>
+        <td style="text-align: center; font-weight: 700; color: var(--text-dim); font-size: 12px; font-family: 'Plus Jakarta Sans', monospace;">${rowIdx + 1}</td>
+        <td>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-weight: 800; font-size: 13.5px; color: var(--text-main);">${esc(x.name || 'بدون اسم')}</span>
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); flex-wrap: wrap;">
+              <span style="display: inline-flex; align-items: center; gap: 3px;"><i data-lucide="folder" style="width: 11px; height: 11px;"></i> <span>${esc(x.cat || '—')}</span></span>
+              <span style="color: var(--border-medium);">•</span>
+              <span style="display: inline-flex; align-items: center; gap: 3px;"><i data-lucide="map-pin" style="width: 11px; height: 11px;"></i> <span>${esc(x.city || '—')}</span></span>
+            </div>
+          </div>
+        </td>
         <td>
           ${hasSite 
-            ? `<a href="${siteUrl}" target="_blank" rel="noopener noreferrer" class="link-btn web" title="زيارة الموقع: ${esc(rawSite)}" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;padding:4px 9px;border-radius:6px;background:rgba(59,130,246,0.12);color:var(--primary);font-size:12px;font-weight:700;border:1px solid rgba(59,130,246,0.25)">
-                🌐 الموقع
+            ? `<a href="${siteUrl}" target="_blank" rel="noopener noreferrer" class="link-btn web" title="زيارة الموقع: ${esc(rawSite)}" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:6px;background:rgba(59,130,246,0.12);color:var(--primary);font-size:12px;font-weight:700;border:1px solid rgba(59,130,246,0.25)">
+                <i data-lucide="globe" style="width:13px;height:13px"></i> <span>الموقع</span>
               </a>`
-            : `<button class="btn-xs btn-secondary btn-create-site" data-client-id="${id}" title="العميل ليس لديه موقع - انقر لتسجيل رابط الموقع بعد الإنشاء" style="background:rgba(245,158,11,0.15);color:var(--warning);border:1px solid rgba(245,158,11,0.35);font-size:11.5px;font-weight:800;padding:4px 9px;border-radius:6px;cursor:pointer">
-                إنشاء 🌐
+            : `<button class="btn-xs btn-secondary btn-create-site" data-client-id="${id}" title="العميل ليس لديه موقع - انقر لتسجيل رابط الموقع" style="background:rgba(245,158,11,0.12);color:var(--warning);border:1px dashed rgba(245,158,11,0.35);font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer">
+                <i data-lucide="plus" style="width:12px;height:12px"></i> <span>إنشاء موقع</span>
               </button>`
           }
         </td>
-        <td style="font-size:12px;color:var(--text-dim)">${esc(nm(x.by))} · ${fmt(x.at)}</td>
+        <td>
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 12px; color: var(--text-main); font-weight: 700;">${esc(nm(x.by))}</span>
+            <span style="font-size: 11px; color: var(--text-dim);">${fmt(x.at)}</span>
+          </div>
+        </td>
     `;
 
     DEPTS.forEach(d => {
@@ -1492,7 +1706,6 @@ function renderClientsView() {
       const canEdit = state.role === 'owner' || state.role === d;
       const details = x.deptDetails?.[d] || {};
 
-      // Check incoming handoff from other depts
       let incomingFrom = null;
       let incomingNote = '';
       if (x.deptDetails) {
@@ -1509,22 +1722,22 @@ function renderClientsView() {
       if (incomingFrom) {
         handoffBadge += `
           <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${incomingFrom}" title="مهمة موجهة من ${DEPT_LABELS[incomingFrom] || incomingFrom}: ${esc(incomingNote)}" style="margin-top:3px;font-size:10px;background:rgba(59,130,246,0.18);color:var(--primary);border:1px solid rgba(59,130,246,0.35);padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            📩 من ${DEPT_LABELS[incomingFrom] || incomingFrom}
+            <i data-lucide="inbox" style="width:11px;height:11px"></i> <span>من ${DEPT_LABELS[incomingFrom] || incomingFrom}</span>
           </div>
         `;
       }
       if (details.note) {
         handoffBadge += `
           <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${d}" title="الملاحظة: ${esc(details.note)}" style="margin-top:3px;font-size:10px;background:rgba(16,185,129,0.15);color:var(--success);border:1px solid rgba(16,185,129,0.3);padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            📝 ملاحظة ${details.handoffTo ? '→ ' + (DEPT_LABELS[details.handoffTo] || details.handoffTo) : ''}
+            <i data-lucide="file-text" style="width:11px;height:11px"></i> <span>ملاحظة ${details.handoffTo ? '→ ' + (DEPT_LABELS[details.handoffTo] || details.handoffTo) : ''}</span>
           </div>
         `;
       }
 
       if (canEdit) {
-        html += `
-          <td>
-            <div style="display:flex;flex-direction:column;align-items:center">
+        desktopTableHtml += `
+          <td style="text-align: center;">
+            <div style="display: inline-flex; flex-direction: column; align-items: center; gap: 3px;">
               <select class="dept-status-select dept-status-${val}" data-client-id="${id}" data-dept="${d}">
                 <option value="0" ${val === 0 ? 'selected' : ''}>لسه</option>
                 <option value="1" ${val === 1 ? 'selected' : ''}>شغّال</option>
@@ -1535,9 +1748,9 @@ function renderClientsView() {
           </td>`;
       } else {
         const text = ['لسه', 'شغّال', 'خلص'][val];
-        html += `
-          <td>
-            <div style="display:flex;flex-direction:column;align-items:center">
+        desktopTableHtml += `
+          <td style="text-align: center;">
+            <div style="display: inline-flex; flex-direction: column; align-items: center; gap: 3px;">
               <span class="dept-status-select dept-status-${val}">${text}</span>
               ${handoffBadge}
             </div>
@@ -1546,22 +1759,23 @@ function renderClientsView() {
     });
 
     if (isAdmin) {
-      html += `
-        <td>
-          <button class="btn-xs btn-secondary btn-edit-portal" data-client-id="${id}" style="padding:4px 8px;font-size:11.5px">
-            ⚙️ تفاصيل تابع
+      desktopTableHtml += `
+        <td style="text-align: center;">
+          <button class="btn-xs btn-primary btn-edit-portal" data-client-id="${id}" title="عرض تفاصيل العميل، الهاتف، وبيانات منصة تابع" style="padding: 6px 12px; font-size: 12px; font-weight: 800; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; box-shadow: 0 2px 8px rgba(59,130,246,0.25);">
+            <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i>
+            <span>بوابة تابع</span>
           </button>
         </td>
       `;
     }
 
-    html += `</tr>`;
+    desktopTableHtml += `</tr>`;
   });
 
-  html += '</tbody></table></div>';
-  container.innerHTML = html;
+  desktopTableHtml += '</tbody></table></div>';
+  container.innerHTML = headerSummaryHtml + mobileCardsHtml + desktopTableHtml;
 
-  // Status select change handlers
+  // Status select change handlers (Works on both mobile cards and desktop table!)
   container.querySelectorAll('.dept-status-select').forEach(sel => {
     sel.onchange = async () => {
       const cid = sel.dataset.clientId;
@@ -1577,6 +1791,11 @@ function renderClientsView() {
       // Otherwise save directly
       await saveDeptStatus(cid, dept, val);
       sel.className = `dept-status-select dept-status-${val}`;
+      // Sync other view
+      container.querySelectorAll(`.dept-status-select[data-client-id="${cid}"][data-dept="${dept}"]`).forEach(s => {
+        s.value = String(val);
+        s.className = `dept-status-select dept-status-${val}`;
+      });
     };
   });
 
@@ -1589,7 +1808,7 @@ function renderClientsView() {
     };
   });
 
-  // Click on 'إنشاء 🌐' to set website URL
+  // Click on create site to set website URL
   container.querySelectorAll('.btn-create-site').forEach(btn => {
     btn.onclick = async () => {
       const cid = btn.dataset.clientId;
@@ -1599,7 +1818,7 @@ function renderClientsView() {
         let clean = url.trim();
         if (!clean.startsWith('http://') && !clean.startsWith('https://')) clean = 'https://' + clean;
         await db.doc(`clients/${cid}`).update({ site: clean });
-        toast('تم حفظ رابط الموقع للعميل بنجاح 🌐', 'success');
+        toast('تم حفظ رابط الموقع للعميل بنجاح', 'success');
         renderClientsView();
       }
     };
@@ -1613,7 +1832,7 @@ function renderClientsView() {
       if (!x) return;
       const text = `بيانات الدخول لمنصة تابع:\nالرابط: http://localhost:5174\nاسم المستخدم: ${x.portalUsername}\nكلمة المرور: ${x.portalPassword}`;
       navigator.clipboard.writeText(text).then(() => {
-        toast('تم نسخ بيانات الدخول إلى الحافظة ✓', 'success');
+        toast('تم نسخ بيانات الدخول إلى الحافظة', 'success');
       }).catch(() => {
         prompt('انسخ بيانات الدخول:', text);
       });
@@ -1626,6 +1845,8 @@ function renderClientsView() {
       openClientPortalModal(btn.dataset.clientId);
     };
   });
+
+  initIcons();
 }
 
 function openClientPortalModal(cid) {
@@ -1662,7 +1883,7 @@ function openClientPortalModal(cid) {
   $('btn-portal-generate-pw').onclick = () => {
     const newPass = Math.floor(100000 + Math.random() * 900000).toString();
     $('portal-input-password').value = newPass;
-    toast('تم توليد كلمة سر جديدة 🎲', 'info');
+    toast('تم توليد كلمة سر جديدة', 'info');
   };
 
   // Setup copy credentials button
@@ -1671,7 +1892,7 @@ function openClientPortalModal(cid) {
     const p = $('portal-input-password').value.trim();
     const text = `بيانات الدخول لمنصة تابع:\nالرابط: http://localhost:5174\nاسم المستخدم: ${u}\nكلمة المرور: ${p}`;
     navigator.clipboard.writeText(text).then(() => {
-      toast('تم نسخ بيانات الدخول ✓', 'success');
+      toast('تم نسخ بيانات الدخول', 'success');
     }).catch(() => {
       prompt('انسخ البيانات:', text);
     });
@@ -1683,7 +1904,7 @@ function openClientPortalModal(cid) {
     const p = $('portal-input-password').value.trim();
     const phoneInputVal = $('portal-input-phone') ? $('portal-input-phone').value.trim() : (client.phone || '');
     const cleanPhone = phoneInputVal.replace(/[^0-9]/g, '');
-    const msg = `مرحباً بك ${client.name || ''} 👋\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة عبر منصة "تابع":\n🌐 رابط المنصة: http://localhost:5174\n👤 اسم المستخدم: ${u}\n🔑 كلمة المرور: ${p}\n\nشكراً لثقتك بنا! ✨`;
+    const msg = `مرحباً بك ${client.name || ''}\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة عبر منصة "تابع":\nرابط المنصة: http://localhost:5174\nاسم المستخدم: ${u}\nكلمة المرور: ${p}\n\nشكراً لثقتك بنا!`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -1711,7 +1932,7 @@ function openClientPortalModal(cid) {
 
     try {
       await db.doc(`clients/${activePortalCid}`).update(updatePayload);
-      toast('تم حفظ وتحديث بيانات العميل ومنصة تابع بنجاح ✓', 'success');
+      toast('تم حفظ وتحديث بيانات العميل ومنصة تابع بنجاح', 'success');
       modal.classList.remove('active');
       renderClientsView();
     } catch (err) {
@@ -1748,10 +1969,11 @@ function renderDetectedLinks(text, containerEl) {
     } catch {}
     return `
       <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:rgba(59,130,246,0.15);color:var(--primary);border:1px solid rgba(59,130,246,0.3);font-size:11.5px;font-weight:700;text-decoration:none;direction:ltr">
-        🔗 ${esc(label)}
+        <i data-lucide="link-2" style="width: 13px; height: 13px;"></i> <span>${esc(label)}</span>
       </a>
     `;
   }).join('');
+  initIcons();
 }
 
 function openDeptHandoffModal(cid, dept, selElement = null) {
@@ -1772,7 +1994,7 @@ function openDeptHandoffModal(cid, dept, selElement = null) {
   $('handoff-modal-dept-name').textContent = deptLabel;
 
   if (selElement) {
-    $('handoff-modal-title').textContent = `تسليم مرحلة ${deptLabel} بنجاح ✓`;
+    $('handoff-modal-title').textContent = `تسليم مرحلة ${deptLabel} بنجاح`;
     $('handoff-modal-subtitle').textContent = 'سجل ملاحظات الإنجاز وروابط العمل، ووجّه المهام لباقي الأقسام';
   } else {
     $('handoff-modal-title').textContent = `ملاحظات وتوجيه مهمة: ${deptLabel}`;
@@ -1817,11 +2039,11 @@ function openDeptHandoffModal(cid, dept, selElement = null) {
 
   // Populate target dept dropdown
   const DEPT_FULL_LABELS = {
-    dev: '💻 البرمجة والتطوير (Dev)',
-    ui: '🎨 التصميم وتجربة المستخدم (UI)',
-    seo: '🔍 تهيئة محركات البحث (SEO)',
-    media: '🎯 الإعلانات والميديا باير (Media)',
-    social: '📱 المحتوى والسوشيال ميديا (Social)'
+    dev: 'البرمجة والتطوير (Dev)',
+    ui: 'التصميم وتجربة المستخدم (UI)',
+    seo: 'تهيئة محركات البحث (SEO)',
+    media: 'الإعلانات والميديا باير (Media)',
+    social: 'المحتوى والسوشيال ميديا (Social)'
   };
   const targetSelect = $('handoff-select-target');
   let targetOptionsHtml = `<option value="">بدون توجيه لقسم آخر</option>`;
@@ -1868,7 +2090,7 @@ async function saveDeptStatus(cid, dept, val, note = null, targetDept = null) {
   const client = state.C.get(cid);
   if (!client) return;
 
-  const deptDetails = { ...(client.deptDetails || {}) };
+  const deptDetails = { ...(client.deptDetails || client.dept_details || {}) };
   const existingDeptInfo = deptDetails[dept] || {};
 
   deptDetails[dept] = {
@@ -1883,6 +2105,7 @@ async function saveDeptStatus(cid, dept, val, note = null, targetDept = null) {
   const updatePayload = {
     [dept]: val,
     deptDetails: deptDetails,
+    dept_details: deptDetails,
     updatedAt: Date.now()
   };
 
@@ -1897,9 +2120,9 @@ async function saveDeptStatus(cid, dept, val, note = null, targetDept = null) {
     await db.doc(`clients/${cid}`).update(updatePayload);
     const deptName = DEPT_LABELS[dept] || dept;
     if (val === 2 && targetDept) {
-      toast(`تم تسليم مرحلة ${deptName} وتوجيه المهمة إلى ${DEPT_LABELS[targetDept] || targetDept} بنجاح ✓`, 'success');
+      toast(`تم تسليم مرحلة ${deptName} وتوجيه المهمة إلى ${DEPT_LABELS[targetDept] || targetDept} بنجاح`, 'success');
     } else {
-      toast(`تم تحديث حالة قسم ${deptName} بنجاح ✓`, 'success');
+      toast(`تم تحديث حالة قسم ${deptName} بنجاح`, 'success');
     }
   } catch (err) {
     console.error('Failed to update dept status:', err);
@@ -1922,7 +2145,7 @@ function openSupabaseSettingsModal() {
   if (keyInput) keyInput.value = cfg?.key || '';
   if (msgEl) {
     if (cfg?.url && cfg?.key) {
-      msgEl.innerHTML = '<span style="color:var(--success);font-weight:700">⚡ متصل حالياً بقاعدة بيانات Supabase السحابية</span>';
+      msgEl.innerHTML = '<span style="color:var(--success);font-weight:700">متصل حالياً بقاعدة بيانات Supabase السحابية</span>';
     } else {
       msgEl.innerHTML = '<span style="color:var(--text-muted)">لم يتم تفعيل اتصال Supabase بعد. أدخل الرابط والمفتاح للحفظ.</span>';
     }
@@ -1944,7 +2167,7 @@ function openSupabaseSettingsModal() {
       localStorage.setItem('crm_supabase_config', JSON.stringify({ url, key }));
     } catch {}
     resetSupabaseClient();
-    toast('تم حفظ إعدادات Supabase وتفعيل الاتصال ⚡', 'success');
+    toast('تم حفظ إعدادات Supabase وتفعيل الاتصال', 'success');
     closeModal();
     setTimeout(() => {
       window.location.reload();
@@ -1995,8 +2218,14 @@ function renderStatsView() {
 
   let html = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-      <h3 style="font-weight:800;font-size:18px">📊 تقرير أداء فريق المبيعات (Sales Leaderboard)</h3>
-      <button id="btn-export-stats-csv" class="btn-secondary">📥 تصدير التقرير (Excel / CSV)</button>
+      <h3 style="font-weight:800;font-size:17px;display:flex;align-items:center;gap:6px">
+        <i data-lucide="bar-chart-3"></i>
+        <span>تقرير أداء فريق المبيعات (Sales Leaderboard)</span>
+      </h3>
+      <button id="btn-export-stats-csv" class="btn-secondary" style="display:inline-flex;align-items:center;gap:6px">
+        <i data-lucide="download"></i>
+        <span>تصدير التقرير (Excel / CSV)</span>
+      </button>
     </div>
     <div class="standard-table-wrapper" style="margin-bottom:28px">
       <table class="standard-table">
@@ -2035,7 +2264,10 @@ function renderStatsView() {
         </tbody>
       </table>
     </div>
-    <h3 style="font-weight:800;font-size:18px;margin-bottom:14px">🚀 تقدم أقسام التنفيذ</h3>
+    <h3 style="font-weight:800;font-size:17px;margin-bottom:14px;display:flex;align-items:center;gap:6px">
+      <i data-lucide="trending-up"></i>
+      <span>تقدم أقسام التنفيذ</span>
+    </h3>
     <div class="standard-table-wrapper">
       <table class="standard-table">
         <thead>
@@ -2068,6 +2300,7 @@ function renderStatsView() {
 
   html += '</tbody></table></div>';
   container.innerHTML = html;
+  initIcons();
 
   const btnExport = $('btn-export-stats-csv');
   if (btnExport) {
@@ -2090,7 +2323,7 @@ function exportStatsToCSV(perUser) {
   a.download = `تقرير_المبيعات_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
-  toast('تم تحميل ملف التقرير بنجاح ✓', 'success');
+  toast('تم تحميل ملف التقرير بنجاح', 'success');
 }
 
 // ----------------- USERS VIEW (Management) -----------------
@@ -2102,7 +2335,10 @@ function renderUsersView() {
 
   let html = `
     <div class="modal-card" style="max-width:100%;margin-bottom:24px">
-      <h3 style="font-size:16px;font-weight:800">➕ إضافة عضو جديد لفريق العمل</h3>
+      <h3 style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:6px">
+        <i data-lucide="user-plus"></i>
+        <span>إضافة عضو جديد لفريق العمل</span>
+      </h3>
       <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">
         قم بإنشاء حسابات لمناديب المبيعات وفريق التنفيذ حتى يتمكنوا من تسجيل الدخول والاطلاع على المهام الموكلة إليهم فقط.
       </p>
@@ -2170,6 +2406,7 @@ function renderUsersView() {
 
   html += '</tbody></table></div>';
   container.innerHTML = html;
+  initIcons();
 
   // New user creation
   $('btn-create-user').onclick = async () => {
@@ -2203,7 +2440,7 @@ function renderUsersView() {
       $('new-user-id').value = '';
       $('new-user-name').value = '';
       $('new-user-pw').value = '';
-      toast(`تم إنشاء حساب "${name}" بنجاح ✓`, 'success');
+      toast(`تم إنشاء حساب "${name}" بنجاح`, 'success');
     } catch {
       msg.textContent = 'تعذّر حفظ بيانات المستخدم';
     }
@@ -2228,7 +2465,7 @@ function renderUsersView() {
           await db.doc(`users/${uid}`).set(await mkCred(pw));
           tr.querySelector('.user-edit-pw').value = '';
         }
-        toast('تم حفظ التعديلات بنجاح ✓', 'success');
+        toast('تم حفظ التعديلات بنجاح', 'success');
       } catch {
         toast('تعذّر الحفظ', 'error');
       }
@@ -2256,178 +2493,6 @@ function renderUsersView() {
       }
     };
   });
-}
-
-// ----------------- SETTINGS & CLOUD SYNC VIEW -----------------
-function renderSettingsView() {
-  const container = $('settings-content');
-  const status = dbManager.getStatus();
-  const cfg = dbManager.getFirebaseConfig() || {};
-
-  container.innerHTML = `
-    <div style="max-width:750px;margin:0 auto">
-      <div class="modal-card" style="max-width:100%;margin-bottom:20px">
-        <h3 style="font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px">
-          <span>☁️</span> الربط السحابي (Firebase Live Sync)
-        </h3>
-        <p style="font-size:13px;color:var(--text-muted);line-height:1.7">
-          يمكّنك الربط مع فايربيز من مشاركة الداشبورد بين السوبر أدمن وفريق المبيعات والتنفيذ مباشرة عبر الإنترنت في الوقت الفعلي ومن أي جهاز أو هاتف.
-        </p>
-
-        <div style="display:flex;align-items:center;gap:10px;padding:12px;border-radius:var(--radius-md);background:var(--bg-canvas);margin-bottom:16px;border:1px solid var(--border-subtle)">
-          <span style="font-size:22px">${status.isCloud ? '🟢' : '🟡'}</span>
-          <div>
-            <b style="display:block;font-size:14px">${status.isCloud ? 'متصل بالسحابة (Firebase Live)' : 'الوضع الحالي: تخزين محلي (Offline)'}</b>
-            <span style="font-size:12px;color:var(--text-dim)">
-              ${status.isCloud ? 'جميع التحديثات تُحفظ وتُزامن سحابياً فوراً.' : 'البيانات تُحفظ في متصفحك الحالي فقط حتى تقوم بربط مشروع فايربيز.'}
-            </span>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>Project ID (معرّف المشروع):</label>
-          <input id="cfg-projectId" value="${esc(cfg.projectId || '')}" placeholder="my-crm-project" style="direction:ltr" />
-        </div>
-        <div class="form-group">
-          <label>API Key:</label>
-          <input id="cfg-apiKey" value="${esc(cfg.apiKey || '')}" placeholder="AIzaSy..." style="direction:ltr" />
-        </div>
-        <div class="form-group">
-          <label>Auth Domain (اختياري):</label>
-          <input id="cfg-authDomain" value="${esc(cfg.authDomain || '')}" placeholder="my-crm-project.firebaseapp.com" style="direction:ltr" />
-        </div>
-
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">
-          <button id="btn-save-cloud-config" class="btn-primary">
-            ⚡ تفعيل وربط فايربيز الآن
-          </button>
-          ${status.isCloud ? `
-            <button id="btn-migrate-to-cloud" class="btn-secondary">
-              ⬆️ نقل البيانات المحلية إلى السحابة
-            </button>
-            <button id="btn-disconnect-cloud" class="btn-danger">
-              قطع الاتصال والعودة للمحلي
-            </button>
-          ` : ''}
-        </div>
-      </div>
-
-      <div class="modal-card" style="max-width:100%">
-        <h3 style="font-size:17px;font-weight:800">💾 النسخ الاحتياطي وإعادة التعيين</h3>
-        <p style="font-size:13px;color:var(--text-muted)">
-          يمكنك تحميل نسخة احتياطية كاملة من جميع الحسابات، التعيينات، والبيانات كملف JSON واستعادتها في أي وقت.
-        </p>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <button id="btn-download-backup" class="btn-secondary">
-            📥 تنزيل نسخة احتياطية (JSON)
-          </button>
-          <label class="btn-secondary" style="cursor:pointer">
-            📤 استعادة نسخة من ملف
-            <input type="file" id="input-restore-backup" accept=".json" style="display:none" />
-          </label>
-          <button id="btn-reset-default-leads" class="btn-secondary" style="color:var(--warning)">
-            🔄 إعادة تحميل الداتا الأصلية (11,149 عميل)
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  $('btn-save-cloud-config').onclick = async () => {
-    const projectId = $('cfg-projectId').value.trim();
-    const apiKey = $('cfg-apiKey').value.trim();
-    const authDomain = $('cfg-authDomain').value.trim();
-
-    if (!projectId || !apiKey) {
-      toast('الرجاء إدخال Project ID و API Key على الأقل', 'error');
-      return;
-    }
-
-    toast('جاري الاتصال بـ Firebase...');
-    try {
-      await dbManager.connectFirebase({ projectId, apiKey, authDomain });
-      toast('تم الاتصال بالسحابة بنجاح! 🚀', 'success');
-      renderApp();
-    } catch (e) {
-      console.error(e);
-      toast('فشل الاتصال بـ Firebase، تأكد من صحة المفاتيح وإعدادات Firestore', 'error');
-    }
-  };
-
-  const btnMigrate = $('btn-migrate-to-cloud');
-  if (btnMigrate) {
-    btnMigrate.onclick = async () => {
-      const ok = await ask('هل تريد رفع ونقل جميع البيانات المحلية الحالية إلى قاعدة بيانات فايربيز السحابية؟');
-      if (!ok) return;
-      toast('جاري نقل البيانات...');
-      try {
-        const count = await dbManager.migrateLocalToCloud();
-        toast(`تم رفع ${count} سجل بنجاح إلى السحابة ✓`, 'success');
-      } catch (e) {
-        toast('حدث خطأ أثناء النقل', 'error');
-      }
-    };
-  }
-
-  const btnDisconnect = $('btn-disconnect-cloud');
-  if (btnDisconnect) {
-    btnDisconnect.onclick = async () => {
-      const ok = await ask('هل تريد فصل السحابة والعودة للتخزين المحلي؟ لن تُحذف بيانات فايربيز.');
-      if (!ok) return;
-      dbManager.disconnectCloud();
-      toast('تم التبديل للتخزين المحلي', 'info');
-      renderApp();
-    };
-  }
-
-  $('btn-download-backup').onclick = () => {
-    const data = dbManager.localDb.exportAll();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `نسخة_احتياطية_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('تم تنزيل النسخة الاحتياطية بنجاح ✓', 'success');
-  };
-
-  $('input-restore-backup').onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const json = JSON.parse(reader.result);
-        const ok = await ask('استعادة النسخة ستستبدل البيانات الحالية، هل تريد الاستمرار؟');
-        if (!ok) return;
-        dbManager.localDb.importAll(json);
-        toast('تم استعادة البيانات بنجاح ✓', 'success');
-        renderApp();
-      } catch {
-        toast('ملف النسخة غير صالح', 'error');
-      }
-    };
-    reader.readAsText(file);
-  };
-
-  $('btn-reset-default-leads').onclick = async () => {
-    const ok = await ask('هل تريد إعادة تعيين قائمة العملاء إلى الـ 11,149 عميل الأصليين من الشيت؟');
-    if (!ok) return;
-    localStorage.removeItem('crm_custom_leads');
-    if (state.D && state.D.rows) {
-      state.S = [...state.D.rows];
-    } else {
-      const pw = sessionStorage.getItem('crm_admin_pw');
-      if (pw) {
-        state.D = await decryptAll(pw);
-        state.S = [...state.D.rows];
-      }
-    }
-    markFirstOccurrences();
-    toast('تمت استعادة الداتا الأصلية من الشيت بنجاح ✓', 'success');
-    renderApp();
-  };
 }
 
 // ----------------- CONFIGURABLE EXCEL / CSV IMPORT ENGINE -----------------
@@ -2518,7 +2583,7 @@ function processWorkbook(workbook, statusEl) {
   }
 
   statusEl.innerHTML = `
-    <b style="color:var(--success)">✓ تم تحليل البيانات بنجاح!</b>
+    <b style="color:var(--success)">تم تحليل البيانات بنجاح!</b>
     <br>تم استخراج <b>${parsedImportRows.length.toLocaleString('en')}</b> عميل صالح عبر <b>${workbook.SheetNames.length}</b> شيت.
   `;
   $('btn-confirm-excel-import').disabled = false;
@@ -2559,15 +2624,15 @@ async function handleOnlineExcelFetch(rawUrl) {
   // Detect OneDrive link
   if (url.includes('1drv.ms') || url.includes('onedrive.live.com')) {
     statusEl.innerHTML = `
-      <b style="color:var(--warning)">⚠️ تنبيه بخصوص رابط OneDrive:</b><br>
+      <b style="color:var(--warning)">تنبيه بخصوص رابط OneDrive:</b><br>
       مايكروسوفت OneDrive تمنع المتصفحات من سحب الملفات المباشرة لحماية الخصوصية (CORS).<br>
       <br>
-      <b>✅ الخطوة البسيطة للحل (ثواني معدودة):</b><br>
+      <b>خطوات الحل البسيطة:</b><br>
       1. افتح رابط الـ OneDrive في نافذة جديدة.<br>
       2. اضغط من الأعلى: <b>ملف (File) &gt; حفظ باسم (Save As) &gt; تنزيل نسخة (Download a Copy)</b>.<br>
       3. ارجع هنا لتبويب <b>"رفع ملف من الجهاز"</b> واسحب الملف المحمل.<br>
       <br>
-      <small style="color:var(--text-dim)">💡 لو بترفع الملف على Google Sheets بدلاً من OneDrive، تقدر تنشره على الويب (File &gt; Share &gt; Publish to web) وتسحبه أونلاين مباشرة بدون تحميل.</small>
+      <small style="color:var(--text-dim)">ملاحظة: لو بترفع الملف على Google Sheets بدلاً من OneDrive، يمكنك نشره على الويب (File &gt; Share &gt; Publish to web) وجلبه أونلاين مباشرة بدون تحميل.</small>
     `;
     return;
   }
@@ -2611,7 +2676,7 @@ async function confirmExcelImport() {
   parsedImportRows = [];
   $('excel-file-input').value = '';
 
-  toast(`تم استيراد ${state.S.length.toLocaleString('en')} عميل بنجاح إلى الداشبورد! 🎉`, 'success');
+  toast(`تم استيراد ${state.S.length.toLocaleString('en')} عميل بنجاح إلى الداشبورد`, 'success');
   renderApp();
 }
 
@@ -2744,6 +2809,33 @@ function setupEventListeners() {
     };
   }
 
+  // Mobile Drawer toggles
+  const btnMobileMenu = $('btn-mobile-menu');
+  if (btnMobileMenu) btnMobileMenu.onclick = openMobileDrawer;
+
+  const btnCloseMobileDrawer = $('btn-close-mobile-drawer');
+  if (btnCloseMobileDrawer) btnCloseMobileDrawer.onclick = closeMobileDrawer;
+
+  const mobileNavOverlay = $('mobile-nav-overlay');
+  if (mobileNavOverlay) mobileNavOverlay.onclick = closeMobileDrawer;
+
+  const btnMobileDrawerLogout = $('btn-mobile-drawer-logout');
+  if (btnMobileDrawerLogout) {
+    btnMobileDrawerLogout.onclick = () => {
+      closeMobileDrawer();
+      $('btn-logout').click();
+    };
+  }
+
+  // Mobile toolbar filters toggle
+  const btnToggleToolbarFilters = $('btn-toggle-toolbar-filters');
+  if (btnToggleToolbarFilters) {
+    btnToggleToolbarFilters.onclick = () => {
+      const wrap = $('toolbar-filters-wrap');
+      if (wrap) wrap.classList.toggle('active');
+    };
+  }
+
   // Setup lead notes modal interactions
   setupNotesModalEvents();
 }
@@ -2762,7 +2854,8 @@ async function handleAdminLogin() {
   const btn = $('btn-admin-login');
   btn.disabled = true;
   const originalText = btn.innerHTML;
-  btn.textContent = '⏳ جاري فك التشفير والتحقق من الشيت...';
+  btn.innerHTML = `<i data-lucide="refresh-cw" class="spin"></i> <span>جاري فك التشفير والتحقق من الشيت...</span>`;
+  initIcons();
 
   try {
     const data = await decryptAll(pw);
@@ -2776,14 +2869,15 @@ async function handleAdminLogin() {
     sessionStorage.setItem('crm_admin_pw', pw);
 
     $('admin-login-pw').value = '';
-    toast(`تم فك التشفير بنجاح! تم تحميل ${state.S.length.toLocaleString('en')} عميل من الشيت جاهزين للإسناد 🎉`, 'success');
+    toast(`تم فك التشفير بنجاح! تم تحميل ${state.S.length.toLocaleString('en')} عميل من الشيت جاهزين للإسناد`, 'success');
     renderApp();
   } catch (err) {
     console.error('Decryption failed:', err);
-    msg.textContent = '❌ كلمة المرور غير صحيحة! لم نتمكن من فك تشفير بيانات الشيت.';
+    msg.textContent = 'كلمة المرور غير صحيحة! لم نتمكن من فك تشفير بيانات الشيت.';
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalText;
+    initIcons();
   }
 }
 
@@ -2819,7 +2913,7 @@ async function handleTeamLogin() {
     sessionStorage.setItem('crm_is_owner', 'false');
 
     $('team-login-pw').value = '';
-    toast(`أهلاً بك ${nm(u)} ✓`, 'success');
+    toast(`أهلاً بك ${nm(u)}`, 'success');
     renderApp();
   } catch (err) {
     console.error(err);

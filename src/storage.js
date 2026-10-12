@@ -159,7 +159,7 @@ class LocalDatabase {
     }
   }
 
-  _setColData(col, data) {
+  _setColData(col, data, skipSupabaseSync = false) {
     try {
       this.memStore.set(col, data);
       if (typeof localStorage !== 'undefined') {
@@ -176,7 +176,7 @@ class LocalDatabase {
           body: JSON.stringify(data)
         }).catch(() => {});
       }
-      if (col === 'clients') {
+      if (col === 'clients' && !skipSupabaseSync) {
         const sb = getSupabaseClient();
         if (sb) {
           const rows = Object.entries(data).map(([id, val]) => ({
@@ -191,17 +191,18 @@ class LocalDatabase {
             plat: val.plat || '',
             by: val.by || '',
             at: val.at || Date.now(),
-            portal_active: val.portalActive ?? true,
-            portal_username: val.portalUsername || '',
-            portal_password: val.portalPassword || '',
-            seo: val.seo || 0,
-            media: val.media || 0,
-            social: val.social || 0,
-            dev: val.dev || 0,
-            ui: val.ui || 0,
-            dept_details: val.deptDetails || {},
-            client_note: val.clientNote || '',
-            expected_delivery: val.expectedDelivery || ''
+            portal_active: (val.portalActive !== undefined ? val.portalActive : val.portal_active) ?? true,
+            portal_username: val.portalUsername || val.portal_username || '',
+            portal_password: val.portalPassword || val.portal_password || '',
+            seo: Number(val.seo !== undefined ? val.seo : 0),
+            media: Number(val.media !== undefined ? val.media : 0),
+            social: Number(val.social !== undefined ? val.social : 0),
+            dev: Number(val.dev !== undefined ? val.dev : 0),
+            ui: Number(val.ui !== undefined ? val.ui : 0),
+            dept_details: val.deptDetails || val.dept_details || {},
+            client_note: val.clientNote || val.client_note || '',
+            expected_delivery: val.expectedDelivery || val.expected_delivery || '',
+            updated_at: new Date().toISOString()
           }));
           if (rows.length) {
             sb.from('clients').upsert(rows).catch(() => {});
@@ -309,52 +310,99 @@ class LocalDatabase {
       async set(data) {
         const colData = self._getColData(col);
         colData[id] = { ...data };
-        self._setColData(col, colData);
-      },
-      async update(partial) {
-        const colData = self._getColData(col);
-        if (!colData[id]) colData[id] = {};
-        colData[id] = { ...colData[id], ...partial };
-        self._setColData(col, colData);
+        self._setColData(col, colData, true);
 
         if (col === 'clients') {
           const sb = getSupabaseClient();
           if (sb) {
             const val = colData[id];
-            sb.from('clients').upsert({
-              id,
-              name: val.name || '',
-              cat: val.cat || '',
-              city: val.city || '',
-              phone: val.phone || '',
-              wa: val.wa || '',
-              site: val.site || '',
-              ig: val.ig || '',
-              plat: val.plat || '',
-              by: val.by || '',
-              at: val.at || Date.now(),
-              portal_active: val.portalActive ?? true,
-              portal_username: val.portalUsername || '',
-              portal_password: val.portalPassword || '',
-              seo: Number(val.seo || 0),
-              media: Number(val.media || 0),
-              social: Number(val.social || 0),
-              dev: Number(val.dev || 0),
-              ui: Number(val.ui || 0),
-              dept_details: val.deptDetails || val.dept_details || {},
-              client_note: val.clientNote || val.client_note || '',
-              expected_delivery: val.expectedDelivery || val.expected_delivery || '',
-              updated_at: new Date().toISOString()
-            }).then(({ error }) => {
+            try {
+              const { error } = await sb.from('clients').upsert({
+                id,
+                name: val.name || '',
+                cat: val.cat || '',
+                city: val.city || '',
+                phone: val.phone || '',
+                wa: val.wa || '',
+                site: val.site || '',
+                ig: val.ig || '',
+                plat: val.plat || '',
+                by: val.by || '',
+                at: val.at || Date.now(),
+                portal_active: (val.portalActive !== undefined ? val.portalActive : val.portal_active) ?? true,
+                portal_username: val.portalUsername || val.portal_username || '',
+                portal_password: val.portalPassword || val.portal_password || '',
+                seo: Number(val.seo !== undefined ? val.seo : 0),
+                media: Number(val.media !== undefined ? val.media : 0),
+                social: Number(val.social !== undefined ? val.social : 0),
+                dev: Number(val.dev !== undefined ? val.dev : 0),
+                ui: Number(val.ui !== undefined ? val.ui : 0),
+                dept_details: val.deptDetails || val.dept_details || {},
+                client_note: val.clientNote || val.client_note || '',
+                expected_delivery: val.expectedDelivery || val.expected_delivery || '',
+                updated_at: new Date().toISOString()
+              });
+              if (error) console.error('Supabase direct set error:', error);
+            } catch (err) {
+              console.error('Supabase set exception:', err);
+            }
+          }
+        }
+      },
+      async update(partial) {
+        const colData = self._getColData(col);
+        if (!colData[id]) colData[id] = {};
+        colData[id] = { ...colData[id], ...partial };
+        // Save locally and broadcast, skip bulk sync to avoid race condition
+        self._setColData(col, colData, true);
+
+        if (col === 'clients') {
+          const sb = getSupabaseClient();
+          if (sb) {
+            const val = colData[id];
+            try {
+              const { error } = await sb.from('clients').upsert({
+                id,
+                name: val.name || '',
+                cat: val.cat || '',
+                city: val.city || '',
+                phone: val.phone || '',
+                wa: val.wa || '',
+                site: val.site || '',
+                ig: val.ig || '',
+                plat: val.plat || '',
+                by: val.by || '',
+                at: val.at || Date.now(),
+                portal_active: (val.portalActive !== undefined ? val.portalActive : val.portal_active) ?? true,
+                portal_username: val.portalUsername || val.portal_username || '',
+                portal_password: val.portalPassword || val.portal_password || '',
+                seo: Number(val.seo !== undefined ? val.seo : 0),
+                media: Number(val.media !== undefined ? val.media : 0),
+                social: Number(val.social !== undefined ? val.social : 0),
+                dev: Number(val.dev !== undefined ? val.dev : 0),
+                ui: Number(val.ui !== undefined ? val.ui : 0),
+                dept_details: val.deptDetails || val.dept_details || {},
+                client_note: val.clientNote || val.client_note || '',
+                expected_delivery: val.expectedDelivery || val.expected_delivery || '',
+                updated_at: new Date().toISOString()
+              });
               if (error) console.error('Supabase direct update error:', error);
-            }).catch(() => {});
+            } catch (err) {
+              console.error('Supabase update exception:', err);
+            }
           }
         }
       },
       async delete() {
         const colData = self._getColData(col);
         delete colData[id];
-        self._setColData(col, colData);
+        self._setColData(col, colData, true);
+        if (col === 'clients') {
+          const sb = getSupabaseClient();
+          if (sb) {
+            sb.from('clients').delete().eq('id', id).catch(console.error);
+          }
+        }
       }
     };
   }
@@ -383,9 +431,6 @@ class StorageManager {
   constructor() {
     this.localDb = new LocalDatabase();
     this.activeDb = this.localDb;
-    this.firebaseApp = null;
-    this.firestoreDb = null;
-    this.isCloud = false;
     this.statusListeners = new Set();
   }
 
@@ -407,98 +452,25 @@ class StorageManager {
       return {
         isCloud: true,
         hasConfig: true,
-        modeText: 'سحابي (Supabase متصل ⚡)'
+        modeText: 'سحابي (Supabase متصل)'
       };
     }
     return {
-      isCloud: this.isCloud,
-      hasConfig: !!this.getFirebaseConfig(),
-      modeText: this.isCloud ? 'سحابي (Firebase متصل)' : 'محلي (تخزين الجهاز)'
+      isCloud: false,
+      hasConfig: false,
+      modeText: 'محلي (تخزين الجهاز)'
     };
-  }
-
-  getFirebaseConfig() {
-    try {
-      if (typeof localStorage === 'undefined') return null;
-      const raw = localStorage.getItem('crm_firebase_config');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  setFirebaseConfig(cfg) {
-    if (typeof localStorage === 'undefined') return;
-    if (!cfg) {
-      localStorage.removeItem('crm_firebase_config');
-    } else {
-      localStorage.setItem('crm_firebase_config', JSON.stringify(cfg));
-    }
   }
 
   async init() {
-    const cfg = this.getFirebaseConfig();
-    if (cfg && cfg.apiKey && cfg.projectId) {
-      try {
-        await this.connectFirebase(cfg);
-        return;
-      } catch (err) {
-        console.warn('Firebase init failed, using local fallback:', err);
+    // Clean up any legacy Firebase config
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('crm_firebase_config');
       }
-    }
+    } catch {}
     this.activeDb = this.localDb;
-    this.isCloud = false;
     this._notifyStatus();
-  }
-
-  async connectFirebase(cfg) {
-    // Dynamic import of Firebase SDK via CDN (compatible with pure client bundles)
-    if (!window.firebaseAppLoaded) {
-      await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
-      await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js');
-      window.firebaseAppLoaded = true;
-    }
-
-    if (!window.firebase.apps.length) {
-      this.firebaseApp = window.firebase.initializeApp(cfg);
-    } else {
-      this.firebaseApp = window.firebase.app();
-    }
-    this.firestoreDb = window.firebase.firestore();
-
-    // Wrap firestore compat in standard interface
-    this.activeDb = {
-      collection: (col) => this.firestoreDb.collection(col),
-      doc: (path) => this.firestoreDb.doc(path)
-    };
-
-    this.setFirebaseConfig(cfg);
-    this.isCloud = true;
-    this._notifyStatus();
-    return true;
-  }
-
-  disconnectCloud() {
-    this.activeDb = this.localDb;
-    this.isCloud = false;
-    this.setFirebaseConfig(null);
-    this._notifyStatus();
-  }
-
-  async migrateLocalToCloud() {
-    if (!this.isCloud || !this.firestoreDb) {
-      throw new Error('السحابة غير متصلة');
-    }
-    const data = this.localDb.exportAll();
-    const batchOps = [];
-
-    for (const [col, docs] of Object.entries(data)) {
-      for (const [id, val] of Object.entries(docs)) {
-        batchOps.push(this.firestoreDb.collection(col).doc(id).set(val));
-      }
-    }
-    await Promise.all(batchOps);
-    return batchOps.length;
   }
 
   // Database proxy methods
