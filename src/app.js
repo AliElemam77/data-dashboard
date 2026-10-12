@@ -55,6 +55,16 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const nm = (id) => state.N[id] || (state.R.get(id)?.name) || id || '—';
 const fmt = (t) => t ? new Date(t).toLocaleString('ar-EG', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 
+export function getPortalBaseUrl() {
+  const saved = localStorage.getItem('crm_portal_url');
+  if (saved) return saved.replace(/\/+$/, '');
+  if (import.meta.env?.VITE_PORTAL_URL) return import.meta.env.VITE_PORTAL_URL.replace(/\/+$/, '');
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://tab3-amber.vercel.app';
+  }
+  return 'http://localhost:5174';
+}
+
 // Toast Notification
 export function toast(msg, type = 'info') {
   const container = $('toast-container');
@@ -1535,7 +1545,7 @@ function renderClientsView() {
     const rawP = (x.phone || '').trim();
     const maskedPhone = rawP.length > 5 ? rawP.substring(0, 3) + '••••' + rawP.slice(-2) : (rawP ? '••••••••' : '—');
     const cleanPhone = (x.phone || '').replace(/[^0-9]/g, '');
-    const waMsg = `مرحباً بك ${x.name || ''}\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة ومن يعمل عليها عبر منصة "تابع":\nرابط المنصة: http://localhost:5174\nاسم المستخدم: ${x.portalUsername}\nكلمة المرور: ${x.portalPassword}\n\nشكراً لثقتك بنا!`;
+    const waMsg = `مرحباً بك ${x.name || ''}\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة ومن يعمل عليها عبر منصة "تابع":\nرابط المنصة: ${getPortalBaseUrl()}\nاسم المستخدم: ${x.portalUsername}\nكلمة المرور: ${x.portalPassword}\n\nشكراً لثقتك بنا!`;
     const waShareUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(waMsg)}`;
 
     const rawSite = (x.site || '').trim();
@@ -1830,7 +1840,7 @@ function renderClientsView() {
       const cid = btn.dataset.clientId;
       const x = state.C.get(cid);
       if (!x) return;
-      const text = `بيانات الدخول لمنصة تابع:\nالرابط: http://localhost:5174\nاسم المستخدم: ${x.portalUsername}\nكلمة المرور: ${x.portalPassword}`;
+      const text = `بيانات الدخول لمنصة تابع:\nالرابط: ${getPortalBaseUrl()}\nاسم المستخدم: ${x.portalUsername}\nكلمة المرور: ${x.portalPassword}`;
       navigator.clipboard.writeText(text).then(() => {
         toast('تم نسخ بيانات الدخول إلى الحافظة', 'success');
       }).catch(() => {
@@ -1876,7 +1886,7 @@ function openClientPortalModal(cid) {
   const previewLink = $('btn-portal-open-preview');
   if (previewLink) {
     const dataStr = encodeURIComponent(JSON.stringify(client));
-    previewLink.href = `http://localhost:5174?u=${encodeURIComponent(client.portalUsername || '')}&p=${encodeURIComponent(client.portalPassword || '')}&cid=${cid}&data=${dataStr}`;
+    previewLink.href = `${getPortalBaseUrl()}?u=${encodeURIComponent(client.portalUsername || '')}&p=${encodeURIComponent(client.portalPassword || '')}&cid=${cid}&data=${dataStr}`;
   }
 
   // Setup generate password button
@@ -1890,7 +1900,7 @@ function openClientPortalModal(cid) {
   $('btn-portal-copy-creds').onclick = () => {
     const u = $('portal-input-username').value.trim();
     const p = $('portal-input-password').value.trim();
-    const text = `بيانات الدخول لمنصة تابع:\nالرابط: http://localhost:5174\nاسم المستخدم: ${u}\nكلمة المرور: ${p}`;
+    const text = `بيانات الدخول لمنصة تابع:\nالرابط: ${getPortalBaseUrl()}\nاسم المستخدم: ${u}\nكلمة المرور: ${p}`;
     navigator.clipboard.writeText(text).then(() => {
       toast('تم نسخ بيانات الدخول', 'success');
     }).catch(() => {
@@ -1904,7 +1914,7 @@ function openClientPortalModal(cid) {
     const p = $('portal-input-password').value.trim();
     const phoneInputVal = $('portal-input-phone') ? $('portal-input-phone').value.trim() : (client.phone || '');
     const cleanPhone = phoneInputVal.replace(/[^0-9]/g, '');
-    const msg = `مرحباً بك ${client.name || ''}\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة عبر منصة "تابع":\nرابط المنصة: http://localhost:5174\nاسم المستخدم: ${u}\nكلمة المرور: ${p}\n\nشكراً لثقتك بنا!`;
+    const msg = `مرحباً بك ${client.name || ''}\nيسعدنا ويشرفنا انضمامك معنا!\n\nيمكنك الآن متابعة سير العمل على مشروعك لحظة بلحظة، ومعرفة تفاصيل المهام والتسليمات المكتملة عبر منصة "تابع":\nرابط المنصة: ${getPortalBaseUrl()}\nاسم المستخدم: ${u}\nكلمة المرور: ${p}\n\nشكراً لثقتك بنا!`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
