@@ -42,23 +42,15 @@ class LocalDatabase {
       });
     }
 
-    if (typeof fetch !== 'undefined') {
+    const hasSb = !!getSupabaseConfig();
+    if (!hasSb && typeof fetch !== 'undefined') {
       fetch('/api/storage/clients')
         .then(r => r.ok ? r.json() : null)
         .then(remote => {
           if (remote && typeof remote === 'object' && Object.keys(remote).length > 0) {
             const local = this._getColData('clients');
             const merged = { ...remote, ...local };
-            this._setColData('clients', merged);
-          } else {
-            const local = this._getColData('clients');
-            if (Object.keys(local).length > 0) {
-              fetch('/api/storage/clients', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(local)
-              }).catch(() => {});
-            }
+            this._setColData('clients', merged, true);
           }
         }).catch(() => {});
     }
@@ -152,17 +144,38 @@ class LocalDatabase {
   _syncClientsFromSupabase(sb) {
     // 1. Initial Pull from Supabase
     sb.from('clients').select('*').then(({ data, error }) => {
-      if (!error && data && data.length > 0) {
-        const local = this._getColData('clients');
-        let modified = false;
-        data.forEach(row => {
-          local[row.id] = {
-            ...(local[row.id] || {}),
-            ...this._rowToClientVal(row)
-          };
-          modified = true;
-        });
-        if (modified) this._saveColLocal('clients', local);
+      if (error) {
+        console.warn('Supabase clients pull skipped:', error.message);
+        return;
+      }
+      const cloudRows = data || [];
+      const cloudMap = {};
+      cloudRows.forEach(row => {
+        cloudMap[row.id] = this._rowToClientVal(row);
+      });
+
+      const local = this._getColData('clients');
+      const localKeys = Object.keys(local);
+      const cloudKeys = Object.keys(cloudMap);
+
+      if (cloudKeys.length > 0) {
+        // Cloud is authoritative
+        this._saveColLocal('clients', cloudMap);
+      } else if (localKeys.length > 0) {
+        // Cloud is empty. If local only has demo items, clear them
+        const isOnlyDemo = localKeys.every(k => ['demo_1', 'c_4393', 'c_27'].includes(k));
+        if (isOnlyDemo) {
+          this._saveColLocal('clients', {});
+        } else {
+          const rows = Object.entries(local)
+            .filter(([id]) => !['demo_1', 'c_4393', 'c_27'].includes(id))
+            .map(([id, val]) => this._clientValToRow(id, val));
+          if (rows.length) {
+            sb.from('clients').upsert(rows).catch(() => {});
+          }
+        }
+      } else {
+        this._saveColLocal('clients', {});
       }
     }).catch(err => console.warn('Supabase initial pull error:', err));
 
@@ -183,10 +196,7 @@ class LocalDatabase {
         if (payload.new && payload.new.id) {
           const row = payload.new;
           const local = this._getColData('clients');
-          local[row.id] = {
-            ...(local[row.id] || {}),
-            ...this._rowToClientVal(row)
-          };
+          local[row.id] = this._rowToClientVal(row);
           this._saveColLocal('clients', local);
         }
       })
@@ -202,35 +212,27 @@ class LocalDatabase {
         return;
       }
       const cloudRows = data || [];
-      const cloudIds = new Set(cloudRows.map(r => r.id));
-      const local = this._getColData(col);
-
-      // 1) Pull down: merge cloud -> local
-      let modified = false;
+      const cloudMap = {};
       cloudRows.forEach(row => {
         if (row && row.id !== undefined) {
-          const prev = JSON.stringify(local[row.id] || null);
-          const merged = { ...(local[row.id] || {}), ...(row.data || {}) };
-          if (JSON.stringify(merged) !== prev) {
-            local[row.id] = merged;
-            modified = true;
-          }
+          cloudMap[row.id] = row.data || {};
         }
       });
 
-      // 2) Push up: local-only docs (e.g. user created on mobile before
-      // the SQL schema existed) -> upload so other devices can see them
-      const localOnly = {};
-      Object.entries(local).forEach(([id, val]) => {
-        if (!cloudIds.has(id)) localOnly[id] = val;
-      });
-      const localOnlyCount = Object.keys(localOnly).length;
-      if (localOnlyCount > 0) {
-        console.log(`Supabase push-up [${col}]: uploading ${localOnlyCount} local-only docs`);
-        this._pushGenericBulk(col, localOnly);
-      }
+      const local = this._getColData(col);
+      const localKeys = Object.keys(local);
+      const cloudKeys = Object.keys(cloudMap);
 
-      if (modified) this._saveColLocal(col, local);
+      if (cloudKeys.length > 0) {
+        // Cloud has data -> cloud is authoritative!
+        this._saveColLocal(col, cloudMap);
+      } else if (localKeys.length > 0) {
+        // Cloud is empty, but local has data: first-time sync push
+        console.log(`Supabase push-up [${col}]: uploading initial ${localKeys.length} docs`);
+        this._pushGenericBulk(col, local);
+      } else {
+        this._saveColLocal(col, {});
+      }
     }).catch(err => console.warn(`Supabase pull [${col}] error:`, err));
   }
 
@@ -402,24 +404,20 @@ class LocalDatabase {
             if (col === 'clients') {
               const { data, error } = await sb.from('clients').select('*');
               if (!error && data) {
-                const local = self._getColData(col);
-                let modified = false;
+                const cloudMap = {};
                 data.forEach(row => {
-                  local[row.id] = { ...(local[row.id] || {}), ...self._rowToClientVal(row) };
-                  modified = true;
+                  cloudMap[row.id] = self._rowToClientVal(row);
                 });
-                if (modified) self._saveColLocal(col, local);
+                self._saveColLocal(col, cloudMap);
               }
             } else {
               const { data, error } = await sb.from(col).select('id,data');
               if (!error && data) {
-                const local = self._getColData(col);
-                let modified = false;
+                const cloudMap = {};
                 data.forEach(row => {
-                  local[row.id] = { ...(local[row.id] || {}), ...(row.data || {}) };
-                  modified = true;
+                  if (row && row.id !== undefined) cloudMap[row.id] = row.data || {};
                 });
-                if (modified) self._saveColLocal(col, local);
+                self._saveColLocal(col, cloudMap);
               }
             }
           } catch {}

@@ -2116,6 +2116,27 @@ function openClientPortalModal(cid) {
   $('btn-close-portal-modal').onclick = closeModal;
   $('btn-cancel-portal-modal').onclick = closeModal;
 
+  const btnDeleteClient = $('btn-delete-portal-client');
+  if (btnDeleteClient) {
+    btnDeleteClient.style.display = isAdmin ? 'inline-flex' : 'none';
+    btnDeleteClient.onclick = async () => {
+      if (!activePortalCid) return;
+      const clientName = client.name || activePortalCid;
+      const ok = await ask(`هل تريد حذف مشروع "${clientName}" نهائياً من مشاريع التنفيذ وبوابة تابع؟`, 'نعم، حذف المشروع', 'إلغاء');
+      if (!ok) return;
+      try {
+        await db.doc(`clients/${activePortalCid}`).delete();
+        logAudit('client', `حذف مشروع ${clientName} من التنفيذ`, { target: activePortalCid });
+        toast(`تم حذف ${clientName} بنجاح`, 'info');
+        modal.classList.remove('active');
+        renderClientsView();
+      } catch (err) {
+        console.error(err);
+        toast('تعذّر حذف العميل', 'error');
+      }
+    };
+  }
+
   modal.classList.add('active');
   initIcons();
 }

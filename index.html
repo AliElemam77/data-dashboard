@@ -596,9 +596,14 @@
             </div>
           </div>
 
-          <div class="modal-actions">
-            <button class="btn-primary" id="btn-save-portal-details"><i data-lucide="check"></i> <span>حفظ وتحديث العميل</span></button>
-            <button class="btn-secondary" id="btn-cancel-portal-modal">إلغاء</button>
+          <div class="modal-actions" style="display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap;">
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-primary" id="btn-save-portal-details"><i data-lucide="check"></i> <span>حفظ وتحديث العميل</span></button>
+              <button class="btn-secondary" id="btn-cancel-portal-modal">إلغاء</button>
+            </div>
+            <button type="button" class="btn-secondary" id="btn-delete-portal-client" style="color: var(--danger); border-color: var(--border-medium);" title="حذف العميل نهائياً من مشاريع التنفيذ">
+              <i data-lucide="trash-2"></i> <span>حذف المشروع</span>
+            </button>
           </div>
         </div>
       </div>
