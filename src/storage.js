@@ -238,6 +238,15 @@ class LocalDatabase {
   collection(col) {
     const self = this;
     return {
+      // One-shot read of the whole collection (same snapshot shape as onSnapshot)
+      async get() {
+        const docs = Object.entries(self._getColData(col)).map(([id, val]) => ({
+          id,
+          data: () => val,
+          exists: true
+        }));
+        return { docs, forEach: (fn) => docs.forEach(fn), size: docs.length };
+      },
       onSnapshot(cb, errCb) {
         if (!self.listeners.has(col)) {
           self.listeners.set(col, new Set());

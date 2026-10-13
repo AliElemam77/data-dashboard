@@ -70,7 +70,10 @@ import {
   Link2,
   UserPlus,
   Grid,
-  List
+  List,
+  Eye,
+  EyeOff,
+  History
 } from 'lucide';
 
 const ALL_ICONS = {
@@ -144,7 +147,10 @@ const ALL_ICONS = {
   Link2,
   UserPlus,
   Grid,
-  List
+  List,
+  Eye,
+  EyeOff,
+  History
 };
 
 /**

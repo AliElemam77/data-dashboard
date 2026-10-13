@@ -146,26 +146,26 @@
             <div class="toolbar-filters-wrap" id="toolbar-filters-wrap">
               <select class="filter-select" id="filter-sort" title="ترتيب النتائج">
                 <option value="default">ترتيب: الافتراضي (الترقيم 1، 2، 3...)</option>
-                <option value="index_desc">ترتيب: الترقيم عكسي (من الأخير للأول)</option>
+                <option value="index_desc" data-admin-only>ترتيب: الترقيم عكسي (من الأخير للأول)</option>
                 <option value="name_asc">ترتيب: الاسم (أ - ي)</option>
-                <option value="name_desc">ترتيب: الاسم (ي - أ)</option>
-                <option value="category">ترتيب: حسب النشاط</option>
-                <option value="city">ترتيب: حسب المدينة</option>
-                <option value="no_web_first">ترتيب: بدون موقع أولاً (فرص مبيعات ذات أولوية)</option>
+                <option value="name_desc" data-admin-only>ترتيب: الاسم (ي - أ)</option>
+                <option value="category" data-admin-only>ترتيب: حسب النشاط</option>
+                <option value="city" data-admin-only>ترتيب: حسب المدينة</option>
+                <option value="no_web_first" data-admin-only>ترتيب: بدون موقع أولاً (فرص مبيعات ذات أولوية)</option>
                 <option value="has_notes_first">ترتيب: بالملاحظات أولاً</option>
-                <option value="erp_desc">ترتيب: نقاط ERP (الأعلى أولاً)</option>
+                <option value="erp_desc" data-admin-only>ترتيب: نقاط ERP (الأعلى أولاً)</option>
                 <option value="reach_desc">ترتيب: سهولة التواصل (الأسهل أولاً)</option>
               </select>
 
-              <select class="filter-select" id="filter-sheet">
+              <select class="filter-select" id="filter-sheet" data-admin-only>
                 <option value="">كل الشيتات</option>
               </select>
 
-              <select class="filter-select" id="filter-platform" style="display:none">
+              <select class="filter-select" id="filter-platform" style="display:none" data-admin-only>
                 <option value="">كل المنصات (سلة، زد...)</option>
               </select>
 
-              <select class="filter-select" id="filter-sector" style="display:none">
+              <select class="filter-select" id="filter-sector" style="display:none" data-admin-only>
                 <option value="">كل القطاعات</option>
               </select>
 
@@ -173,11 +173,11 @@
                 <option value="">كل الخدمات المقترحة</option>
               </select>
 
-              <select class="filter-select" id="filter-erp" style="display:none">
+              <select class="filter-select" id="filter-erp" style="display:none" data-admin-only>
                 <option value="">كل تصنيفات ERP</option>
               </select>
 
-              <select class="filter-select" id="filter-website">
+              <select class="filter-select" id="filter-website" data-admin-only>
                 <option value="">كل المواقع (ويبسايت)</option>
                 <option value="no_web">بدون موقع (فرصة مبيعات)</option>
                 <option value="has_web">يوجد موقع إلكتروني</option>
@@ -197,27 +197,27 @@
                 <option value="no_notes">بدون ملاحظات</option>
               </select>
 
-              <select class="filter-select" id="filter-duplicate">
+              <select class="filter-select" id="filter-duplicate" data-admin-only>
                 <option value="">كل الصفوف</option>
                 <option value="unique">بدون تكرار (أول ظهور)</option>
                 <option value="dup">المكرر فقط</option>
               </select>
 
-              <select class="filter-select" id="filter-assignee">
+              <select class="filter-select" id="filter-assignee" data-admin-only>
                 <option value="">كل المسؤولين</option>
               </select>
 
-              <select class="filter-select" id="filter-selected">
+              <select class="filter-select" id="filter-selected" data-admin-only>
                 <option value="">الكل</option>
                 <option value="selected">المحدد فقط</option>
               </select>
 
-              <button class="btn-secondary" id="btn-open-excel-import" title="استيراد شيت إكسيل جديد">
+              <button class="btn-secondary" id="btn-open-excel-import" data-admin-only title="استيراد شيت إكسيل جديد">
                 <i data-lucide="file-spreadsheet"></i>
                 <span>استيراد ملف إكسيل / CSV</span>
               </button>
 
-              <button class="btn-secondary" id="btn-open-bulk-modal" title="توزيع بالعدد">
+              <button class="btn-secondary" id="btn-open-bulk-modal" data-admin-only title="توزيع بالعدد">
                 <i data-lucide="zap"></i>
                 <span>توزيع جماعي بالعدد</span>
               </button>
@@ -259,6 +259,40 @@
       <!-- View: Users (إدارة فريق العمل) -->
       <main class="view-container" id="view-users" style="padding: 16px 20px; overflow-y: auto;">
         <div id="users-content"></div>
+      </main>
+
+      <!-- View: Audit log (سجل النشاط) — Super Admin only -->
+      <main class="view-container" id="view-audit" style="padding: 16px 20px; overflow-y: auto;">
+        <div class="audit-head">
+          <div>
+            <h3><i data-lucide="history"></i><span>سجل النشاط</span></h3>
+            <p>مين عمل إيه وإمتى على الداشبورد. بيتحفظ آخر 90 يوم.</p>
+          </div>
+          <button id="btn-audit-export" class="btn-secondary"><i data-lucide="download"></i><span>تصدير (Excel / CSV)</span></button>
+        </div>
+        <div class="audit-toolbar">
+          <div class="search-box audit-search">
+            <i data-lucide="search" class="search-icon"></i>
+            <input id="audit-search" type="search" placeholder="بحث في التفاصيل، اسم عميل، اسم دخول..." autocomplete="off" />
+          </div>
+          <select class="filter-select" id="audit-filter-user"><option value="">كل المستخدمين</option></select>
+          <select class="filter-select" id="audit-filter-type"><option value="">كل العمليات</option></select>
+          <select class="filter-select" id="audit-filter-range">
+            <option value="">كل الفترة</option>
+            <option value="1">النهارده</option>
+            <option value="7">آخر 7 أيام</option>
+            <option value="30">آخر 30 يوم</option>
+          </select>
+        </div>
+        <div class="standard-table-wrapper">
+          <table class="standard-table audit-table">
+            <thead>
+              <tr><th>الوقت</th><th>المستخدم</th><th>النوع</th><th>التفاصيل</th></tr>
+            </thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
+        </div>
+        <div id="audit-footer" class="audit-footer"></div>
       </main>
 
       <!-- ================= FLOATING SELECTION DOCK ================= -->

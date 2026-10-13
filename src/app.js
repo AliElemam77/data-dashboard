@@ -21,6 +21,7 @@ const state = {
   N: {},         // username -> displayName
   byCid: new Map(), // leadId -> leadRow
   selectedCids: new Set(), // Set of selected lead IDs for specific assignment
+  AU: [],        // Audit log entries, newest first (Super Admin only)
   activeNoteCid: null,
   canvasTable: null,
   view: 'leads',
@@ -127,6 +128,110 @@ export function ask(question, confirmText = 'تأكيد', cancelText = 'إلغا
     $('btn-confirm-yes').addEventListener('click', handleYes);
     $('btn-confirm-no').addEventListener('click', handleNo);
   });
+}
+
+// ----------------- AUDIT LOG -----------------
+// One doc per local day (audit/YYYY-MM-DD -> { entries: [...] }); days older than
+// AUDIT_KEEP_DAYS are pruned when a new day starts. Writes go through a queue so two
+// quick actions can't overwrite each other's read-modify-write of the day doc.
+const AUDIT_KEEP_DAYS = 90;
+const AUDIT_TYPES = {
+  auth: 'الدخول والخروج',
+  user: 'فريق العمل',
+  assign: 'الإسناد',
+  lead: 'التواصل والملاحظات',
+  client: 'التنفيذ',
+  data: 'البيانات'
+};
+let auditQueue = Promise.resolve();
+
+const localDay = (t) => new Date(t).toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+
+function auditActor() {
+  return state.me?.isOwner ? 'admin' : (state.sess || '');
+}
+
+/** Record who did what. `by` defaults to the signed-in user ('' for anonymous, e.g. a failed login). */
+function logAudit(type, summary, { by = auditActor(), target = '' } = {}) {
+  const entry = { at: Date.now(), by, type, summary, target };
+  auditQueue = auditQueue.then(async () => {
+    const ref = db.doc(`audit/${localDay(entry.at)}`);
+    const snap = await ref.get();
+    const entries = snap.exists ? (snap.data().entries || []) : [];
+    entries.push(entry);
+    await ref.set({ entries });
+    if (!snap.exists) await pruneAudit();
+  }).catch(err => console.warn('Audit log write failed:', err));
+  return auditQueue;
+}
+
+async function pruneAudit() {
+  const cutoff = localDay(Date.now() - AUDIT_KEEP_DAYS * 86400000);
+  const snap = await db.collection('audit').get();
+  await Promise.all(snap.docs.filter(d => d.id < cutoff).map(d => db.doc(`audit/${d.id}`).delete()));
+}
+
+// ----------------- PASSWORD HELPERS -----------------
+// Plaintext passwords the admin set during this session, so "copy login details" can include
+// them. Memory only: stored credentials are PBKDF2 hashes and can never be shown again.
+const sessionPasswords = new Map();
+
+function generatePassword(len = 10) {
+  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no look-alikes (0/O, 1/l/I)
+  const out = [];
+  while (out.length < len) {
+    const b = crypto.getRandomValues(new Uint8Array(1))[0];
+    if (b < 256 - (256 % chars.length)) out.push(chars[b % chars.length]); // reject to avoid modulo bias
+  }
+  return out.join('');
+}
+
+function setPasswordVisible(input, show) {
+  input.type = show ? 'text' : 'password';
+  const btn = input.parentNode.querySelector('.pw-toggle');
+  if (!btn) return;
+  btn.title = show ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور';
+  btn.setAttribute('aria-label', btn.title);
+  btn.innerHTML = `<i data-lucide="${show ? 'eye-off' : 'eye'}"></i>`;
+  initIcons();
+}
+
+/** Wraps a password input with a show/hide (eye) button. Safe to call more than once. */
+function addPasswordToggle(input) {
+  if (!input || input.dataset.pwToggle) return;
+  input.dataset.pwToggle = '1';
+  const wrap = document.createElement('span');
+  wrap.className = 'pw-wrap';
+  input.parentNode.insertBefore(wrap, input);
+  wrap.appendChild(input);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pw-toggle';
+  btn.onclick = () => {
+    setPasswordVisible(input, input.type === 'password');
+    input.focus();
+  };
+  wrap.appendChild(btn);
+  setPasswordVisible(input, false);
+}
+
+function copyText(text, successMsg) {
+  return navigator.clipboard.writeText(text)
+    .then(() => toast(successMsg, 'success'))
+    .catch(() => prompt('انسخ البيانات:', text));
+}
+
+function teamLoginDetails(uid, pw) {
+  const profile = state.R.get(uid) || {};
+  return [
+    `أهلاً ${profile.name || uid}`,
+    'دي بيانات دخولك على داشبورد المبيعات والتنفيذ:',
+    `الرابط: ${window.location.origin}`,
+    'نوع الحساب: فريق العمل',
+    `اسم الدخول: ${uid}`,
+    `كلمة المرور: ${pw}`,
+    `القسم: ${ROLES[profile.role] || profile.role || '—'}`
+  ].join('\n');
 }
 
 // ----------------- DATA PROTECTION & ANTI-COPY SECURITY -----------------
@@ -344,6 +449,8 @@ export function closeMobileDrawer() {
 
 function renderApp() {
   state.role = getMyRole();
+  // CSS keys off this to hide [data-admin-only] controls for everyone but the Super Admin
+  document.body.dataset.role = state.role || '';
 
   // If not logged in, show login view
   if (!state.me?.isOwner && !state.sess) {
@@ -388,6 +495,7 @@ function renderApp() {
   }
 
   setupAssignmentListener();
+  setupAuditListener();
   renderTabs();
   showView(state.view);
 
@@ -396,6 +504,7 @@ function renderApp() {
   else if (state.view === 'clients') renderClientsView();
   else if (state.view === 'stats') renderStatsView();
   else if (state.view === 'users') renderUsersView();
+  else if (state.view === 'audit') renderAuditView();
 
   initIcons();
 }
@@ -410,13 +519,12 @@ function renderTabs() {
       { id: 'leads', label: 'العملاء المحتملين', shortLabel: 'العملاء', icon: 'users' },
       { id: 'clients', label: 'التنفيذ والمشاريع', shortLabel: 'التنفيذ', icon: 'briefcase' },
       { id: 'stats', label: 'الإحصائيات', shortLabel: 'الإحصائيات', icon: 'bar-chart-3' },
-      { id: 'users', label: 'فريق العمل', shortLabel: 'الفريق', icon: 'user-check' }
+      { id: 'users', label: 'فريق العمل', shortLabel: 'الفريق', icon: 'user-check' },
+      { id: 'audit', label: 'سجل النشاط', shortLabel: 'السجل', icon: 'history' }
     );
   } else if (state.role === 'sales') {
-    tabs.push(
-      { id: 'leads', label: 'عملاء المبيعات المحتملين', shortLabel: 'العملاء', icon: 'users' },
-      { id: 'clients', label: 'التنفيذ والمشاريع', shortLabel: 'التنفيذ', icon: 'briefcase' }
-    );
+    // Sales only work their leads; execution projects are for the admin and the delivery departments
+    tabs.push({ id: 'leads', label: 'عملاء المبيعات المحتملين', shortLabel: 'العملاء', icon: 'users' });
   } else if (DEPTS.includes(state.role)) {
     tabs.push({ id: 'clients', label: 'مشاريع التنفيذ', shortLabel: 'التنفيذ', icon: 'briefcase' });
   }
@@ -428,9 +536,10 @@ function renderTabs() {
   // 1. Desktop Nav Tabs
   if (container) {
     container.innerHTML = tabs.map(t => `
-      <button class="tab-btn ${t.id === state.view ? 'active' : ''}" data-tab="${t.id}">
+      <button class="tab-btn ${t.id === state.view ? 'active' : ''}" data-tab="${t.id}" title="${t.label}">
         <i data-lucide="${t.icon}"></i>
-        <span>${t.label}</span>
+        <span class="tab-label-long">${t.label}</span>
+        <span class="tab-label-short">${t.shortLabel}</span>
       </button>
     `).join('');
 
@@ -518,17 +627,26 @@ function setupAssignmentListener() {
 // ----------------- LEADS VIEW & SPECIFIC SELECTION -----------------
 function updateToolbarForRole() {
   const isOwner = state.role === 'owner';
-  const adminElements = [
-    $('btn-open-excel-import'),
-    $('btn-open-bulk-modal'),
-    $('filter-sheet'),
-    $('filter-duplicate'),
-    $('filter-assignee'),
-    $('filter-selected')
-  ];
-  adminElements.forEach(el => {
-    if (el) el.style.display = isOwner ? '' : 'none';
+
+  // Admin-only controls are hidden by CSS (body[data-role]). Here: make sure a hidden
+  // filter can't keep filtering, and that admin-only sort options can't be picked.
+  document.querySelectorAll('#toolbar-filters-wrap [data-admin-only]').forEach(el => {
+    if (el.tagName === 'OPTION') {
+      el.hidden = !isOwner;
+      el.disabled = !isOwner;
+    } else if (el.tagName === 'SELECT' && !isOwner) {
+      el.value = '';
+    }
   });
+  const sortSel = $('filter-sort');
+  if (sortSel && sortSel.selectedOptions[0]?.disabled) sortSel.value = 'default';
+
+  const search = $('search-leads');
+  if (search) {
+    search.placeholder = isOwner
+      ? 'بحث بالاسم، الرقم، المدينة، النشاط، الشيت...'
+      : 'بحث بالاسم، الرقم، المدينة، النشاط...';
+  }
 
   const dock = $('selection-dock');
   if (dock && !isOwner) {
@@ -1160,11 +1278,16 @@ function setupNotesModalEvents() {
       renderCanvasTable();
 
       try {
-        await db.doc(`leads/${cid}`).set({
+        // update() merges; the local store's set() replaces the doc and would wipe the stage flags
+        await db.doc(`leads/${cid}`).update({
           notes: text,
           noteBy: currentUid,
           noteAt: now
-        }, { merge: true });
+        });
+        const leadName = state.byCid.get(cid)?.[3] || cid;
+        logAudit('lead', text
+          ? `ملاحظة على ${leadName}: ${text.length > 80 ? text.slice(0, 80) + '…' : text}`
+          : `مسح ملاحظة ${leadName}`, { target: cid });
         toast('تم حفظ ملاحظات العميل بنجاح', 'success');
       } catch (err) {
         console.error('Error saving notes:', err);
@@ -1222,6 +1345,12 @@ async function applyAssign(cids, targetUid) {
   for (let i = 0; i < jobs.length; i += 4) {
     await Promise.all(jobs.slice(i, i + 4).map(fn => fn()));
   }
+
+  const n = cids.length;
+  const which = n === 1 ? ` (${state.byCid.get(cids[0])?.[3] || cids[0]})` : '';
+  logAudit('assign', targetUid
+    ? `إسناد ${n.toLocaleString('en')} عميل إلى ${nm(targetUid)}${which}`
+    : `إلغاء إسناد ${n.toLocaleString('en')} عميل${which}`, { target: targetUid || '' });
 }
 
 // Dock Action: Assign Selected Specific Leads
@@ -1381,6 +1510,10 @@ async function toggleStage(row, stageKey) {
 
   try {
     await db.doc(`leads/${cid}`).set(newState);
+    const stageLabel = { s: 'اتبعت', r: 'رد', j: 'معانا' }[stageKey];
+    logAudit('lead', willTurnOn
+      ? `علّم "${stageLabel}" على ${row[3] || cid}`
+      : `شال "${stageLabel}" من ${row[3] || cid}`, { target: cid });
     if (shouldCreateClient) {
       const cleanPhone = (row[6] || '').replace(/[^0-9]/g, '');
       const portalUser = cleanPhone || `client_${cid}`;
@@ -1969,6 +2102,7 @@ function openClientPortalModal(cid) {
 
     try {
       await db.doc(`clients/${activePortalCid}`).update(updatePayload);
+      logAudit('client', `تحديث بيانات العميل ومنصة تابع لـ ${client.name || activePortalCid}`, { target: activePortalCid });
       toast('تم حفظ وتحديث بيانات العميل ومنصة تابع بنجاح', 'success');
       modal.classList.remove('active');
       renderClientsView();
@@ -2156,6 +2290,9 @@ async function saveDeptStatus(cid, dept, val, note = null, targetDept = null) {
   try {
     await db.doc(`clients/${cid}`).update(updatePayload);
     const deptName = DEPT_LABELS[dept] || dept;
+    const statusLabel = ['لسه', 'شغّال', 'خلص'][val] ?? val;
+    logAudit('client', `${deptName} لـ ${client.name || cid}: ${statusLabel}` +
+      (val === 2 && targetDept ? ` وتسليم لـ ${DEPT_LABELS[targetDept] || targetDept}` : ''), { target: cid });
     if (val === 2 && targetDept) {
       toast(`تم تسليم مرحلة ${deptName} وتوجيه المهمة إلى ${DEPT_LABELS[targetDept] || targetDept} بنجاح`, 'success');
     } else {
@@ -2363,6 +2500,91 @@ function exportStatsToCSV(perUser) {
   toast('تم تحميل ملف التقرير بنجاح', 'success');
 }
 
+// ----------------- AUDIT LOG VIEW (Super Admin) -----------------
+const AUDIT_MAX_ROWS = 500;
+let auditUnsub = null;
+
+function setupAuditListener() {
+  const wanted = state.role === 'owner';
+  if (wanted && !auditUnsub) {
+    auditUnsub = db.collection('audit').onSnapshot((snap) => {
+      const all = [];
+      snap.forEach(d => (d.data().entries || []).forEach(e => all.push(e)));
+      state.AU = all.sort((a, b) => b.at - a.at);
+      if (state.view === 'audit') renderAuditView();
+    });
+  } else if (!wanted && auditUnsub) {
+    auditUnsub();
+    auditUnsub = null;
+    state.AU = [];
+  }
+}
+
+const auditWho = (by) => (by === 'admin' ? 'السوبر أدمن' : by ? nm(by) : '—');
+
+function filteredAudit() {
+  const q = ($('audit-search').value || '').trim().toLowerCase();
+  const fu = $('audit-filter-user').value;
+  const ft = $('audit-filter-type').value;
+  const days = Number($('audit-filter-range').value) || 0;
+  const since = days ? new Date(new Date().setHours(0, 0, 0, 0) - (days - 1) * 86400000).getTime() : 0;
+  return state.AU.filter(e =>
+    (!fu || e.by === fu) &&
+    (!ft || e.type === ft) &&
+    e.at >= since &&
+    (!q || `${e.summary} ${e.target} ${e.by} ${auditWho(e.by)}`.toLowerCase().includes(q))
+  );
+}
+
+function renderAuditView() {
+  // Keep the selected filter values while refreshing the option lists
+  const userSel = $('audit-filter-user');
+  const prevUser = userSel.value;
+  const users = [...new Set(state.AU.map(e => e.by).filter(Boolean))];
+  userSel.innerHTML = '<option value="">كل المستخدمين</option>' +
+    users.map(u => `<option value="${esc(u)}">${esc(auditWho(u))}${u === 'admin' ? '' : ` (${esc(u)})`}</option>`).join('');
+  userSel.value = users.includes(prevUser) ? prevUser : '';
+
+  const typeSel = $('audit-filter-type');
+  if (typeSel.options.length === 1) {
+    typeSel.innerHTML += Object.entries(AUDIT_TYPES).map(([k, t]) => `<option value="${k}">${t}</option>`).join('');
+  }
+
+  const rows = filteredAudit();
+  const shown = rows.slice(0, AUDIT_MAX_ROWS);
+  $('audit-tbody').innerHTML = shown.length
+    ? shown.map(e => `
+      <tr>
+        <td class="audit-time">${esc(new Date(e.at).toLocaleString('ar-EG', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td>
+        <td><b>${esc(auditWho(e.by))}</b>${e.by && e.by !== 'admin' ? `<span class="audit-uid">${esc(e.by)}</span>` : ''}</td>
+        <td><span class="audit-type">${esc(AUDIT_TYPES[e.type] || e.type)}</span></td>
+        <td class="audit-summary">${esc(e.summary)}</td>
+      </tr>`).join('')
+    : `<tr><td colspan="4" class="audit-empty">${state.AU.length ? 'مفيش نتايج بالفلاتر دي' : 'لسه مفيش نشاط متسجّل'}</td></tr>`;
+
+  $('audit-footer').textContent = rows.length > AUDIT_MAX_ROWS
+    ? `معروض أحدث ${AUDIT_MAX_ROWS.toLocaleString('en')} من ${rows.length.toLocaleString('en')} عملية. ضيّق الفلاتر أو صدّر الملف عشان تشوف الكل.`
+    : `${rows.length.toLocaleString('en')} عملية`;
+  initIcons();
+}
+
+function exportAuditToCSV() {
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  let csv = '﻿'; // UTF-8 BOM for Arabic support in Excel
+  csv += 'الوقت,المستخدم,اسم الدخول,النوع,التفاصيل\n';
+  filteredAudit().forEach(e => {
+    csv += [new Date(e.at).toLocaleString('en-GB'), auditWho(e.by), e.by, AUDIT_TYPES[e.type] || e.type, e.summary].map(cell).join(',') + '\n';
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `سجل_النشاط_${localDay(Date.now())}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('تم تحميل سجل النشاط', 'success');
+}
+
 // ----------------- USERS VIEW (Management) -----------------
 function renderUsersView() {
   const container = $('users-content');
@@ -2434,6 +2656,9 @@ function renderUsersView() {
           <td>
             <div style="display:flex;gap:6px">
               <button class="btn-primary btn-save-user" style="padding:6px 12px;font-size:12px">حفظ التعديل</button>
+              <button class="btn-secondary btn-copy-user" style="padding:6px 12px;font-size:12px" title="نسخ رسالة فيها الرابط واسم الدخول وكلمة المرور عشان تبعتها له">
+                <i data-lucide="copy"></i><span>نسخ البيانات</span>
+              </button>
               <button class="btn-danger btn-delete-user" style="padding:6px 12px;font-size:12px">حذف</button>
             </div>
           </td>
@@ -2443,6 +2668,7 @@ function renderUsersView() {
 
   html += '</tbody></table></div>';
   container.innerHTML = html;
+  container.querySelectorAll('input[type="password"]').forEach(addPasswordToggle);
   initIcons();
 
   // New user creation
@@ -2474,10 +2700,12 @@ function renderUsersView() {
     try {
       await db.doc(`users/${uid}`).set(await mkCred(pw));
       await db.doc(`profiles/${uid}`).set({ name, role });
+      sessionPasswords.set(uid, pw);
+      logAudit('user', `إنشاء حساب ${name} (${uid}) — ${ROLES[role] || role}`, { target: uid });
       $('new-user-id').value = '';
       $('new-user-name').value = '';
       $('new-user-pw').value = '';
-      toast(`تم إنشاء حساب "${name}" بنجاح`, 'success');
+      toast(`تم إنشاء حساب "${name}". دوس "نسخ البيانات" جنبه عشان تبعتهاله`, 'success');
     } catch {
       msg.textContent = 'تعذّر حفظ بيانات المستخدم';
     }
@@ -2491,21 +2719,51 @@ function renderUsersView() {
       const name = tr.querySelector('.user-edit-name').value.trim() || uid;
       const role = tr.querySelector('.user-edit-role').value;
       const pw = tr.querySelector('.user-edit-pw').value;
+      const before = state.R.get(uid) || {};
 
       try {
         await db.doc(`profiles/${uid}`).set({ name, role });
+        const changes = [];
+        if (before.name !== name) changes.push(`الاسم: ${before.name || '—'} ← ${name}`);
+        if (before.role !== role) changes.push(`الدور: ${ROLES[before.role] || before.role || '—'} ← ${ROLES[role] || role}`);
+        if (changes.length) logAudit('user', `تعديل ${uid}: ${changes.join('، ')}`, { target: uid });
         if (pw) {
           if (pw.length < 6) {
             toast('كلمة المرور 6 أحرف على الأقل', 'error');
             return;
           }
           await db.doc(`users/${uid}`).set(await mkCred(pw));
+          sessionPasswords.set(uid, pw);
+          logAudit('user', `تغيير كلمة مرور ${name} (${uid})`, { target: uid });
           tr.querySelector('.user-edit-pw').value = '';
         }
         toast('تم حفظ التعديلات بنجاح', 'success');
       } catch {
         toast('تعذّر الحفظ', 'error');
       }
+    };
+
+    tr.querySelector('.btn-copy-user').onclick = async () => {
+      let pw = sessionPasswords.get(uid);
+      if (!pw) {
+        const ok = await ask(
+          `كلمة مرور "${nm(uid)}" محفوظة مشفّرة ومينفعش تظهر تاني. تعمل له كلمة مرور جديدة وتنسخ بياناته؟ القديمة هتبطّل تشتغل.`,
+          'كلمة مرور جديدة ونسخ',
+          'إلغاء'
+        );
+        if (!ok) return;
+        pw = generatePassword();
+        try {
+          await db.doc(`users/${uid}`).set(await mkCred(pw));
+        } catch {
+          toast('تعذّر حفظ كلمة المرور الجديدة', 'error');
+          return;
+        }
+        sessionPasswords.set(uid, pw);
+        logAudit('user', `تعيين كلمة مرور جديدة لـ ${nm(uid)} (${uid})`, { target: uid });
+      }
+      await copyText(teamLoginDetails(uid, pw), `تم نسخ بيانات دخول ${nm(uid)}، ابعتهاله`);
+      logAudit('user', `نسخ بيانات دخول ${nm(uid)} (${uid})`, { target: uid });
     };
 
     tr.querySelector('.btn-delete-user').onclick = async () => {
@@ -2522,8 +2780,11 @@ function renderUsersView() {
           if (x.u === uid) deleteOps.push(db.doc(`asg/${docId}`).delete());
         });
         await Promise.all(deleteOps);
+        const deletedName = nm(uid);
         await db.doc(`profiles/${uid}`).delete();
         await db.doc(`users/${uid}`).delete();
+        sessionPasswords.delete(uid);
+        logAudit('user', `حذف حساب ${deletedName} (${uid})`, { target: uid });
         toast('تم حذف المستخدم بنجاح', 'info');
       } catch {
         toast('تعذّر حذف المستخدم', 'error');
@@ -2709,6 +2970,7 @@ async function confirmExcelImport() {
   } else {
     state.S = parsedImportRows;
   }
+  logAudit('data', `استيراد ${parsedImportRows.length.toLocaleString('en')} عميل من ملف (${isAppend ? 'إضافة للموجود' : 'استبدال الكل'})`);
 
   // Security: Customer data kept purely in JS memory, NEVER stored unencrypted
   markFirstOccurrences();
@@ -2723,11 +2985,20 @@ async function confirmExcelImport() {
 // ----------------- GLOBAL EVENT LISTENERS -----------------
 function setupEventListeners() {
   // Login Submissions
+  ['admin-login-pw', 'team-login-pw'].forEach(id => addPasswordToggle($(id)));
+
+  // Audit log view
+  $('audit-search').addEventListener('input', debounce(renderAuditView, 150));
+  ['audit-filter-user', 'audit-filter-type', 'audit-filter-range'].forEach(id => { $(id).onchange = renderAuditView; });
+  $('btn-audit-export').onclick = exportAuditToCSV;
   $('form-login-admin').onsubmit = (e) => { e.preventDefault(); handleAdminLogin(); };
   $('form-login-team').onsubmit = (e) => { e.preventDefault(); handleTeamLogin(); };
 
   // Logout
   $('btn-logout').onclick = async () => {
+    if (state.me || state.sess) {
+      logAudit('auth', `تسجيل خروج ${state.me?.isOwner ? 'السوبر أدمن' : nm(state.sess)}`);
+    }
     state.me = null;
     state.sess = '';
     state.D = null;
@@ -2914,12 +3185,15 @@ async function handleAdminLogin() {
     sessionStorage.setItem('crm_sess', 'admin');
     sessionStorage.setItem('crm_is_owner', 'true');
     sessionStorage.setItem('crm_admin_pw', pw);
+    logAudit('auth', 'دخول السوبر أدمن');
 
     $('admin-login-pw').value = '';
+    setPasswordVisible($('admin-login-pw'), false);
     toast(`تم فك التشفير بنجاح! تم تحميل ${state.S.length.toLocaleString('en')} عميل من الشيت جاهزين للإسناد`, 'success');
     renderApp();
   } catch (err) {
     console.error('Decryption failed:', err);
+    logAudit('auth', 'محاولة دخول فاشلة كسوبر أدمن (كلمة مرور غلط)', { by: '' });
     msg.textContent = 'كلمة المرور غير صحيحة';
     $('admin-login-pw').select();
   } finally {
@@ -2944,6 +3218,7 @@ async function handleTeamLogin() {
     const userDoc = await db.doc(`users/${u}`).get();
     const cred = userDoc.exists ? userDoc.data() : null;
     if (!cred || (await hpw(p, b2u(cred.salt), cred.it)) !== cred.hash) {
+      logAudit('auth', `محاولة دخول فاشلة باسم الدخول "${u}"`, { by: '', target: u });
       msg.textContent = 'اسم الدخول أو كلمة المرور غير صحيحة';
       $('team-login-pw').select();
       return;
@@ -2954,7 +3229,9 @@ async function handleTeamLogin() {
     sessionStorage.setItem('crm_sess', u);
     sessionStorage.setItem('crm_is_owner', 'false');
 
+    logAudit('auth', `دخول ${nm(u)}`);
     $('team-login-pw').value = '';
+    setPasswordVisible($('team-login-pw'), false);
     toast(`أهلاً بك ${nm(u)}`, 'success');
     renderApp();
   } catch (err) {

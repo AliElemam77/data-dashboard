@@ -239,6 +239,18 @@ input, select, textarea {
   color: var(--text-main);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
+/* Full tab names only on wide screens, so the admin's five tabs keep the header on one row */
+.tab-label-short {
+  display: none;
+}
+@media (max-width: 1599px) {
+  .tab-label-long {
+    display: none;
+  }
+  .tab-label-short {
+    display: inline;
+  }
+}
 
 .header-meta {
   display: flex;
@@ -1108,6 +1120,16 @@ input, select, textarea {
   flex-wrap: wrap;
 }
 
+/* Super Admin only (body[data-role] is set in renderApp). !important beats the inline
+   display that populateFilterDropdowns sets on the attribute filters. */
+body:not([data-role="owner"]) [data-admin-only] {
+  display: none !important;
+}
+/* Sales toolbar order: stage, what to pitch, follow-ups, then sort */
+body[data-role="sales"] #filter-status { order: -3; }
+body[data-role="sales"] #filter-service { order: -2; }
+body[data-role="sales"] #filter-notes { order: -1; }
+
 /* Mobile Navigation Drawer & Backdrop */
 .mobile-nav-overlay {
   position: fixed;
@@ -1730,4 +1752,108 @@ body.auth-mode #btn-mobile-menu {
   .auth-card {
     padding: 24px 18px 18px;
   }
+}
+
+/* ---------- Show / hide password ---------- */
+/* The eye sits on the left (the end side in this RTL UI) for every password field. */
+.pw-wrap {
+  position: relative;
+  display: block;
+}
+.pw-wrap input {
+  width: 100%;
+  padding-left: 38px !important;
+}
+.pw-toggle {
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.pw-toggle:hover {
+  color: var(--text-main);
+  background: var(--primary-soft);
+}
+.pw-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------- Audit log ---------- */
+.audit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.audit-head h3 {
+  font-size: 17px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.audit-head p {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.audit-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.audit-search {
+  flex: 1 1 260px;
+}
+.audit-table td.audit-summary {
+  white-space: normal;
+  line-height: 1.6;
+  min-width: 280px;
+}
+.audit-time {
+  color: var(--text-muted) !important;
+  font-size: 12.5px;
+}
+.audit-uid {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  font-family: var(--font-latin);
+  direction: ltr;
+  text-align: right;
+}
+.audit-type {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-medium);
+  background: var(--primary-soft);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+.audit-empty {
+  text-align: center;
+  color: var(--text-muted) !important;
+  padding: 28px !important;
+}
+.audit-footer {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-top: 10px;
 }
