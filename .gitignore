@@ -2,3 +2,7 @@ node_modules
 dist
 .DS_Store
 *.local
+
+# Plaintext lead exports (only the encrypted src/data.js is committed)
+leads-hub-*.csv
+scratch/data.prev.js

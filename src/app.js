@@ -1,6 +1,7 @@
 import { decryptAll, hpw, mkCred, b2u } from './crypto.js';
 import { db, dbManager } from './storage.js';
 import { CanvasCustomerTable } from './canvasTable.js';
+import { LX, ROW_LEN, leadExtras } from './leadFields.js';
 import { initIcons } from './icons.js';
 import { getSupabaseConfig, saveSupabaseConfig, resetSupabaseClient } from './supabase.js';
 import * as XLSX from 'xlsx';
@@ -690,6 +691,26 @@ function populateFilterDropdowns() {
   fs.innerHTML = '<option value="">كل الشيتات والمصادر (' + sheets.length + ')</option>' + sheets.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
   fs.value = prevFs;
 
+  // leads-hub enrichment filters: hidden when the loaded rows don't carry the field
+  [
+    ['filter-sector', LX.SECTOR, 'كل القطاعات'],
+    ['filter-service', LX.SERVICE, 'كل الخدمات المقترحة'],
+    ['filter-erp', LX.ERP_GRADE, 'كل تصنيفات ERP'],
+  ].forEach(([id, idx, allLabel]) => {
+    const sel = $(id);
+    if (!sel) return;
+    const counts = new Map();
+    state.S.forEach(r => { if (r[idx]) counts.set(r[idx], (counts.get(r[idx]) || 0) + 1); });
+    const prev = sel.value;
+    const opts = idx === LX.ERP_GRADE
+      ? [...counts.keys()].sort()
+      : [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a));
+    sel.innerHTML = `<option value="">${allLabel}</option>` +
+      opts.map(v => `<option value="${esc(v)}">${esc(idx === LX.ERP_GRADE ? 'ERP ' + v : v)} (${counts.get(v).toLocaleString('en')})</option>`).join('');
+    sel.value = counts.has(prev) ? prev : '';
+    sel.style.display = counts.size ? '' : 'none';
+  });
+
   // Populate sales reps in filter & bulk modals
   const salesUsers = [...state.R.entries()].filter(x => x[1].role === 'sales');
   const fa = $('filter-assignee');
@@ -725,6 +746,9 @@ function filterLeads() {
   const fd = $('filter-duplicate').value;
   const fa = $('filter-assignee') ? $('filter-assignee').value : '';
   const fsel = $('filter-selected') ? $('filter-selected').value : '';
+  const fsector = $('filter-sector') ? $('filter-sector').value : '';
+  const fservice = $('filter-service') ? $('filter-service').value : '';
+  const ferp = $('filter-erp') ? $('filter-erp').value : '';
 
   state.filteredIndices = [];
 
@@ -739,6 +763,11 @@ function filterLeads() {
 
     // Sheet filter
     if (fs && r[1] !== fs) continue;
+
+    // Sector / suggested service / ERP grade filters
+    if (fsector && r[LX.SECTOR] !== fsector) continue;
+    if (fservice && r[LX.SERVICE] !== fservice) continue;
+    if (ferp && r[LX.ERP_GRADE] !== ferp) continue;
 
     // Website presence filter (r[12] is boolean hasWebsite)
     if (fweb === 'has_web' && !r[12]) continue;
@@ -777,7 +806,7 @@ function filterLeads() {
     // Search query (name, category, city, phone, sheet, notes)
     if (q) {
       if (!r._searchText) {
-        r._searchText = [r[3], r[4], r[5], r[6], r[1]].filter(Boolean).join(' ').toLowerCase();
+        r._searchText = [r[3], r[4], r[5], r[6], r[1], r[13], r[LX.SECTOR], r[LX.SERVICE], r[LX.EMAIL]].filter(Boolean).join(' ').toLowerCase();
       }
       const matchText = r._searchText.includes(q);
       const matchNotes = st.notes && st.notes.toLowerCase().includes(q);
@@ -808,6 +837,8 @@ function filterLeads() {
         const bNotes = state.L.get(rb[0])?.notes ? 1 : 0;
         return bNotes - aNotes;
       }
+      if (fsort === 'erp_desc') return (Number(rb[LX.ERP_SCORE]) || 0) - (Number(ra[LX.ERP_SCORE]) || 0);
+      if (fsort === 'reach_desc') return (Number(rb[LX.REACH]) || 0) - (Number(ra[LX.REACH]) || 0);
       return 0;
     });
   }
@@ -892,6 +923,10 @@ function sortLeadsByColumn(colId, asc) {
       case 'name':
         valA = rA[3] || '';
         valB = rB[3] || '';
+        break;
+      case 'opportunity':
+        valA = rA[LX.SERVICE] || '';
+        valB = rB[LX.SERVICE] || '';
         break;
       case 'category':
         valA = rA[4] || '';
@@ -1043,6 +1078,27 @@ function openNotesModal(cid, r) {
   const phoneEl = $('modal-notes-phone');
   if (phoneEl) phoneEl.textContent = r[6] || '—';
 
+  const oppEl = $('modal-notes-opp');
+  if (oppEl) {
+    const setText = (id, v) => { const el = $(id); if (el) el.textContent = v === '' || v === undefined || v === null ? '—' : v; };
+    const showIf = (id, on) => { const el = $(id); if (el) el.style.display = on ? '' : 'none'; };
+    const hasOpp = !!(r[LX.SERVICE] || r[13]);
+    oppEl.style.display = hasOpp ? 'block' : 'none';
+    if (hasOpp) {
+      setText('modal-notes-service', r[LX.SERVICE]);
+      setText('modal-notes-sector', r[LX.SECTOR]);
+      setText('modal-notes-erp', r[LX.ERP_GRADE] ? `${r[LX.ERP_GRADE]} (${r[LX.ERP_SCORE] || 0} نقطة)` : '');
+      setText('modal-notes-reach', r[LX.REACH] === '' || r[LX.REACH] === undefined ? '' : `${r[LX.REACH]}%`);
+      setText('modal-notes-reason', r[13]);
+      setText('modal-notes-other', r[LX.OTHER_OPPS]);
+      showIf('modal-notes-other-wrap', !!r[LX.OTHER_OPPS]);
+      setText('modal-notes-email', r[LX.EMAIL]);
+      showIf('modal-notes-email-wrap', !!r[LX.EMAIL]);
+      setText('modal-notes-rating', r[LX.RATING] ? `${r[LX.RATING]} ★ (${(Number(r[LX.REVIEWS]) || 0).toLocaleString('en')} تقييم)` : '');
+      showIf('modal-notes-rating-wrap', !!r[LX.RATING]);
+    }
+  }
+
   const textarea = $('modal-notes-textarea');
   if (textarea) textarea.value = st.notes || '';
 
@@ -1169,7 +1225,7 @@ async function applyAssign(cids, targetUid) {
     const rows = [];
     nextAssignments.forEach((assignedUser, cid) => {
       if (assignedUser === u && state.byCid.get(cid)) {
-        rows.push(state.byCid.get(cid).slice(0, 16));
+        rows.push(state.byCid.get(cid).slice(0, ROW_LEN));
       }
     });
 
@@ -2513,9 +2569,11 @@ const COLUMN_MAPPINGS = {
   city: ['City', 'District', 'Country', 'المدينة', 'المحافظة', 'المنطقة', 'العنوان', 'city', 'Location'],
   email: ['Email', 'email', 'البريد', 'البريد الإلكتروني', 'الايميل', 'e-mail'],
   website: ['Website', 'storeUrl', 'الموقع', 'المتجر', 'الموقع الإلكتروني', 'website', 'Site', 'site', 'URL', 'url'],
-  maps: ['Google Maps', 'Maps', 'رابط الخريطة', 'اللوكيشن', 'maps', 'location_url', 'google_maps', 'maps_link'],
-  instagram: ['Instagram', 'instagram', 'انستقرام', 'انستجرام', 'حساب انستجرام', 'IG', 'ig'],
-  platform: ['Platform', 'platform', 'المنصة', 'المصدر', 'Source', 'source']
+  maps: ['Google Maps', 'Maps', 'رابط الخريطة', 'اللوكيشن', 'خرائط جوجل', 'maps', 'location_url', 'google_maps', 'maps_link'],
+  instagram: ['Instagram', 'instagram', 'انستقرام', 'انستجرام', 'إنستغرام', 'حساب انستجرام', 'IG', 'ig'],
+  platform: ['Platform', 'platform', 'المنصة', 'المصدر', 'Source', 'source'],
+  reason: ['Lead Reason', 'سبب الفرصة (جملة الفتح)'],
+  section: ['القسم']
 };
 
 function extractMappedField(item, mappingKeys) {
@@ -2565,7 +2623,7 @@ function processWorkbook(workbook, statusEl) {
 
       const row = [
         'c_' + globalId++,
-        sheetName,
+        extractMappedField(item, COLUMN_MAPPINGS.section) || sheetName,
         globalId,
         name,
         cat,
@@ -2577,9 +2635,10 @@ function processWorkbook(workbook, statusEl) {
         mapsUrl,
         plat,
         hasWeb,
-        item['Lead Reason'] || '',
+        extractMappedField(item, COLUMN_MAPPINGS.reason),
         hasDupFlag || isPhoneDup,
-        Date.now()
+        Date.now(),
+        ...leadExtras(item)
       ];
       parsedImportRows.push(row);
     });
@@ -2725,6 +2784,7 @@ function setupEventListeners() {
   };
   if ($('filter-sort')) $('filter-sort').onchange = filterLeads;
   $('filter-sheet').onchange = filterLeads;
+  ['filter-sector', 'filter-service', 'filter-erp'].forEach(id => { if ($(id)) $(id).onchange = filterLeads; });
   if ($('filter-website')) $('filter-website').onchange = filterLeads;
   $('filter-status').onchange = filterLeads;
   if ($('filter-notes')) $('filter-notes').onchange = filterLeads;

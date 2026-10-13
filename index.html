@@ -175,10 +175,24 @@
                 <option value="city">ترتيب: حسب المدينة</option>
                 <option value="no_web_first">ترتيب: بدون موقع أولاً (فرص مبيعات ذات أولوية)</option>
                 <option value="has_notes_first">ترتيب: بالملاحظات أولاً</option>
+                <option value="erp_desc">ترتيب: نقاط ERP (الأعلى أولاً)</option>
+                <option value="reach_desc">ترتيب: سهولة التواصل (الأسهل أولاً)</option>
               </select>
 
               <select class="filter-select" id="filter-sheet">
                 <option value="">كل الشيتات</option>
+              </select>
+
+              <select class="filter-select" id="filter-sector" style="display:none">
+                <option value="">كل القطاعات</option>
+              </select>
+
+              <select class="filter-select" id="filter-service" style="display:none">
+                <option value="">كل الخدمات المقترحة</option>
+              </select>
+
+              <select class="filter-select" id="filter-erp" style="display:none">
+                <option value="">كل تصنيفات ERP</option>
               </select>
 
               <select class="filter-select" id="filter-website">
@@ -445,6 +459,21 @@
             <div style="display: flex; align-items: center; gap: 4px;"><i data-lucide="folder" style="width: 14px; height: 14px;"></i> النشاط: <b id="modal-notes-cat" style="color:var(--text-main)">—</b></div>
             <div style="display: flex; align-items: center; gap: 4px;"><i data-lucide="map-pin" style="width: 14px; height: 14px;"></i> المدينة: <b id="modal-notes-city" style="color:var(--text-main)">—</b></div>
             <div style="display: flex; align-items: center; gap: 4px;"><i data-lucide="phone" style="width: 14px; height: 14px;"></i> الهاتف: <b id="modal-notes-phone" style="direction:ltr;display:inline-block;color:var(--text-main)">—</b></div>
+          </div>
+
+          <div id="modal-notes-opp" style="display: none; font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px; padding: 10px 12px; background: var(--primary-soft); border-radius: var(--radius-sm); border: 1px solid var(--border-glow);">
+            <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 6px;">
+              <div style="display: flex; align-items: center; gap: 4px;"><i data-lucide="target" style="width: 14px; height: 14px;"></i> الخدمة المقترحة: <b id="modal-notes-service" style="color:var(--primary)">—</b></div>
+              <div>القطاع: <b id="modal-notes-sector" style="color:var(--text-main)">—</b></div>
+              <div>ERP: <b id="modal-notes-erp" style="color:var(--text-main)">—</b></div>
+              <div>سهولة التواصل: <b id="modal-notes-reach" style="color:var(--text-main)">—</b></div>
+            </div>
+            <div style="margin-bottom: 4px;">جملة الفتح: <b id="modal-notes-reason" style="color:var(--text-main)">—</b></div>
+            <div id="modal-notes-other-wrap" style="margin-bottom: 4px;">فرص أخرى: <span id="modal-notes-other" style="color:var(--text-main)"></span></div>
+            <div style="display: flex; gap: 14px; flex-wrap: wrap;">
+              <div id="modal-notes-email-wrap">البريد: <b id="modal-notes-email" style="direction:ltr;display:inline-block;color:var(--text-main)"></b></div>
+              <div id="modal-notes-rating-wrap">تقييم جوجل: <b id="modal-notes-rating" style="color:var(--text-main)"></b></div>
+            </div>
           </div>
 
           <div class="form-group">

@@ -13,6 +13,16 @@
  * - Frontend protections against copy, cut, contextmenu, drag, selection
  */
 
+import { LX } from './leadFields.js';
+
+const SERVICE_COLORS = {
+  'موقع إلكتروني': '#3b82f6',
+  'متجر إلكتروني': '#10b981',
+  'تسويق وإعلانات': '#a855f7',
+  'نظام ERP': '#f59e0b',
+};
+const ERP_GRADE_COLORS = { A: '#10b981', B: '#3b82f6', C: '#f59e0b', D: '#64748b' };
+
 export class CanvasCustomerTable {
   constructor(options = {}) {
     this.viewport = null;
@@ -69,6 +79,7 @@ export class CanvasCustomerTable {
       { id: 'select', title: '', width: 44, align: 'center', sortable: false },
       { id: 'index', title: '#', width: 46, align: 'center', sortable: true },
       { id: 'name', title: 'الاسم والنشاط', width: 230, align: 'right', sortable: true },
+      { id: 'opportunity', title: 'الفرصة وجملة الفتح', width: 260, align: 'right', sortable: true },
       { id: 'category', title: 'التصنيف', width: 130, align: 'right', sortable: true },
       { id: 'city', title: 'المدينة', width: 100, align: 'right', sortable: true },
       { id: 'phone', title: 'رقم الهاتف', width: 130, align: 'ltr', sortable: false },
@@ -376,6 +387,54 @@ export class CanvasCustomerTable {
         ctx.fillStyle = colors.textMain;
         const nameText = r[3] || 'بدون اسم';
         this.renderTruncatedText(ctx, nameText, x + w - 12, centerY + 4.5, w - 24);
+        ctx.restore();
+        break;
+      }
+
+      case 'opportunity': {
+        // Line 1: suggested service + ERP grade badge. Line 2: opening line.
+        const service = r[LX.SERVICE] || '';
+        const grade = r[LX.ERP_GRADE] || '';
+        const reason = r[13] || '';
+        ctx.save();
+        ctx.direction = 'rtl';
+        ctx.textAlign = 'right';
+        if (!service && !reason) {
+          ctx.font = '500 12px "Cairo", sans-serif';
+          ctx.fillStyle = colors.textDim;
+          ctx.fillText('—', x + w - 12, centerY + 4);
+          ctx.restore();
+          break;
+        }
+
+        let textMaxW = w - 24;
+        if (grade) {
+          const badgeW = 46;
+          const badgeH = 18;
+          const badgeX = x + 10;
+          const badgeY = y + 7;
+          const gradeColor = ERP_GRADE_COLORS[grade] || colors.textDim;
+          ctx.globalAlpha = 0.16;
+          ctx.fillStyle = gradeColor;
+          this.fillRoundRect(ctx, badgeX, badgeY, badgeW, badgeH, 5);
+          ctx.globalAlpha = 1;
+          ctx.font = '700 10.5px "Plus Jakarta Sans", sans-serif';
+          ctx.fillStyle = gradeColor;
+          ctx.textAlign = 'center';
+          ctx.direction = 'ltr';
+          ctx.fillText('ERP ' + grade, badgeX + badgeW / 2, badgeY + 13);
+          ctx.direction = 'rtl';
+          ctx.textAlign = 'right';
+          textMaxW -= badgeW + 8;
+        }
+
+        ctx.font = '700 12px "Cairo", sans-serif';
+        ctx.fillStyle = SERVICE_COLORS[service] || colors.primary;
+        this.renderTruncatedText(ctx, service || 'فرصة', x + w - 12, y + 20, textMaxW);
+
+        ctx.font = '500 11px "Cairo", sans-serif';
+        ctx.fillStyle = colors.textMuted;
+        this.renderTruncatedText(ctx, reason, x + w - 12, y + 37, w - 24);
         ctx.restore();
         break;
       }
@@ -891,6 +950,7 @@ export class CanvasCustomerTable {
         break;
       }
       case 'notes':
+      case 'opportunity':
         action = 'note';
         break;
       case 'stages': {
