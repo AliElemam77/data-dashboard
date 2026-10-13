@@ -15,13 +15,34 @@
 
 import { LX } from './leadFields.js';
 
-const SERVICE_COLORS = {
-  'موقع إلكتروني': '#3b82f6',
-  'متجر إلكتروني': '#10b981',
-  'تسويق وإعلانات': '#a855f7',
-  'نظام ERP': '#f59e0b',
-};
-const ERP_GRADE_COLORS = { A: '#10b981', B: '#3b82f6', C: '#f59e0b', D: '#64748b' };
+// Canvas can't use CSS variables, so the table snapshots the theme tokens from style.css.
+// setTheme() refreshes it; the app calls that after <html data-theme> changes.
+function readThemePalette() {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (name) => cs.getPropertyValue(name).trim();
+  return {
+    bgSurface: v('--bg-surface'),
+    bgRowAlt: v('--bg-card-hover'),
+    bgHeader: v('--bg-surface-elevated'),
+    borderSubtle: v('--border-subtle'),
+    borderStrong: v('--border-medium'),
+    textMain: v('--text-main'),
+    textMuted: v('--text-muted'),
+    textDim: v('--text-dim'),
+    primary: v('--primary'),
+    onPrimary: v('--on-primary'),
+    soft: v('--primary-soft'),
+    glow: v('--primary-glow'),
+  };
+}
+
+// ERP grade badge in grays: A = solid ink, B = gray fill, C = light fill, D = outline only
+function erpBadgeStyle(grade, c) {
+  if (grade === 'A') return { fill: c.primary, text: c.onPrimary };
+  if (grade === 'B') return { fill: c.glow, text: c.textMain };
+  if (grade === 'C') return { fill: c.soft, text: c.textMuted };
+  return { stroke: c.borderStrong, text: c.textDim };
+}
 
 export class CanvasCustomerTable {
   constructor(options = {}) {
@@ -200,6 +221,7 @@ export class CanvasCustomerTable {
 
   setTheme(isDark) {
     this.isDark = isDark;
+    this.palette = readThemePalette();
     this.scheduleRender();
   }
 
@@ -252,21 +274,11 @@ export class CanvasCustomerTable {
     ctx.save();
     ctx.scale(dpr, dpr);
 
-    // Theme Palette
-    const bgMain = this.isDark ? '#090d16' : '#f8fafc';
-    const bgSurface = this.isDark ? '#101726' : '#ffffff';
-    const bgRowAlt = this.isDark ? '#0d1320' : '#fcfdfe';
-    const bgRowHover = this.isDark ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.08)';
-    const bgRowSelected = this.isDark ? 'rgba(59, 130, 246, 0.20)' : 'rgba(59, 130, 246, 0.14)';
-    const bgHeader = this.isDark ? '#162035' : '#f1f5f9';
-    const borderSubtle = this.isDark ? 'rgba(255, 255, 255, 0.07)' : '#e2e8f0';
-    const textMain = this.isDark ? '#f1f5f9' : '#0f172a';
-    const textMuted = this.isDark ? '#94a3b8' : '#64748b';
-    const textDim = this.isDark ? '#64748b' : '#94a3b8';
-    const primary = '#3b82f6';
-    const success = '#10b981';
-    const warning = '#f59e0b';
-    const danger = '#ef4444';
+    // Theme palette (from the CSS tokens)
+    const colors = this.palette || (this.palette = readThemePalette());
+    const { bgSurface, bgRowAlt, borderSubtle } = colors;
+    const bgRowHover = colors.soft;
+    const bgRowSelected = colors.glow;
 
     // 1. Clear background
     ctx.fillStyle = bgSurface;
@@ -319,16 +331,12 @@ export class CanvasCustomerTable {
       for (let ci = 0; ci < this.columns.length; ci++) {
         const col = this.columns[ci];
         if (col.hidden) continue;
-        this.renderCell(ctx, col, r, st, cid, isSelected, isHovered, col.x, rowY, col.width, rowH, {
-          textMain, textMuted, textDim, primary, success, warning, danger, borderSubtle
-        }, k);
+        this.renderCell(ctx, col, r, st, cid, isSelected, isHovered, col.x, rowY, col.width, rowH, colors, k);
       }
     }
 
     // 4. Fixed Header (Rendered on top at screen y = 0)
-    this.renderHeader(ctx, w, headerH, {
-      bgHeader, textMain, textMuted, borderSubtle, primary
-    });
+    this.renderHeader(ctx, w, headerH, colors);
 
     ctx.restore();
   }
@@ -361,7 +369,7 @@ export class CanvasCustomerTable {
           if (isSelected) {
             ctx.fillStyle = colors.primary;
             this.fillRoundRect(ctx, chkX, chkY, chkSize, chkSize, 4);
-            ctx.strokeStyle = '#ffffff';
+            ctx.strokeStyle = colors.onPrimary;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(chkX + 3.5, chkY + 8);
@@ -413,13 +421,17 @@ export class CanvasCustomerTable {
           const badgeH = 18;
           const badgeX = x + 10;
           const badgeY = y + 7;
-          const gradeColor = ERP_GRADE_COLORS[grade] || colors.textDim;
-          ctx.globalAlpha = 0.16;
-          ctx.fillStyle = gradeColor;
-          this.fillRoundRect(ctx, badgeX, badgeY, badgeW, badgeH, 5);
-          ctx.globalAlpha = 1;
+          const badge = erpBadgeStyle(grade, colors);
+          if (badge.fill) {
+            ctx.fillStyle = badge.fill;
+            this.fillRoundRect(ctx, badgeX, badgeY, badgeW, badgeH, 5);
+          } else {
+            ctx.strokeStyle = badge.stroke;
+            ctx.lineWidth = 1;
+            this.strokeRoundRect(ctx, badgeX + 0.5, badgeY + 0.5, badgeW - 1, badgeH - 1, 5);
+          }
           ctx.font = '700 10.5px "Plus Jakarta Sans", sans-serif';
-          ctx.fillStyle = gradeColor;
+          ctx.fillStyle = badge.text;
           ctx.textAlign = 'center';
           ctx.direction = 'ltr';
           ctx.fillText('ERP ' + grade, badgeX + badgeW / 2, badgeY + 13);
@@ -429,7 +441,7 @@ export class CanvasCustomerTable {
         }
 
         ctx.font = '700 12px "Cairo", sans-serif';
-        ctx.fillStyle = SERVICE_COLORS[service] || colors.primary;
+        ctx.fillStyle = colors.textMain;
         this.renderTruncatedText(ctx, service || 'فرصة', x + w - 12, y + 20, textMaxW);
 
         ctx.font = '500 11px "Cairo", sans-serif';
@@ -471,6 +483,7 @@ export class CanvasCustomerTable {
         ctx.direction = 'ltr';
         ctx.textAlign = 'left';
         ctx.font = '600 12px "Plus Jakarta Sans", monospace';
+        ctx.fillStyle = colors.textMuted;
         const rawP = (r[6] || '').trim();
         const phoneText = rawP.length > 5 ? rawP.substring(0, 3) + '••••' + rawP.slice(-2) : (rawP ? '••••••••' : '—');
         this.renderTruncatedText(ctx, phoneText, x + 12, centerY + 4, w - 24);
@@ -489,20 +502,18 @@ export class CanvasCustomerTable {
 
         ctx.save();
         if (hasWeb) {
-          ctx.fillStyle = isActionHovered ? 'rgba(16, 185, 129, 0.35)' : 'rgba(16, 185, 129, 0.15)';
+          ctx.fillStyle = isActionHovered ? colors.glow : colors.soft;
           this.fillRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
-          ctx.strokeStyle = 'rgba(16, 185, 129, 0.45)';
+          ctx.strokeStyle = colors.borderStrong;
           ctx.lineWidth = 1;
           this.strokeRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
 
           ctx.font = '700 11.5px "Cairo", sans-serif';
-          ctx.fillStyle = colors.success;
+          ctx.fillStyle = colors.textMain;
           ctx.textAlign = 'center';
           ctx.fillText('يوجد موقع', pillX + (pillW / 2), pillY + 17.5);
         } else {
-          ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
-          this.fillRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
-          ctx.strokeStyle = colors.borderSubtle;
+          ctx.strokeStyle = colors.borderStrong;
           ctx.lineWidth = 1;
           ctx.setLineDash([3, 2]);
           this.strokeRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
@@ -524,47 +535,49 @@ export class CanvasCustomerTable {
         const startX = x + Math.floor((w - (btnSize * 3 + gap * 2)) / 2);
         const btnY = y + Math.floor((h - btnSize) / 2);
 
-        // 1. Google Maps Pin (Red)
+        // 1. Google Maps
         const isMapsHover = isHovered && (this.hoveredAction === 'maps');
         ctx.save();
-        ctx.fillStyle = isMapsHover ? 'rgba(239, 68, 68, 0.35)' : 'rgba(239, 68, 68, 0.15)';
+        ctx.fillStyle = isMapsHover ? colors.glow : colors.soft;
         this.fillRoundRect(ctx, startX, btnY, btnSize, btnSize, 6);
-        ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.strokeStyle = colors.borderStrong;
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, startX, btnY, btnSize, btnSize, 6);
         ctx.font = '700 9.5px "Cairo", sans-serif';
-        ctx.fillStyle = colors.danger;
+        ctx.fillStyle = colors.textMain;
         ctx.textAlign = 'center';
         ctx.fillText('خرائط', startX + (btnSize / 2), btnY + 18);
         ctx.restore();
 
-        // 2. WhatsApp (Green)
+        // 2. WhatsApp
         const waX = startX + btnSize + gap;
         const isWaHover = isHovered && (this.hoveredAction === 'wa');
         ctx.save();
-        ctx.fillStyle = isWaHover ? 'rgba(37, 211, 102, 0.35)' : 'rgba(37, 211, 102, 0.15)';
+        ctx.fillStyle = isWaHover ? colors.glow : colors.soft;
         this.fillRoundRect(ctx, waX, btnY, btnSize, btnSize, 6);
-        ctx.strokeStyle = 'rgba(37, 211, 102, 0.4)';
+        ctx.strokeStyle = colors.borderStrong;
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, waX, btnY, btnSize, btnSize, 6);
         ctx.font = '700 9.5px "Cairo", sans-serif';
-        ctx.fillStyle = '#25D366';
+        ctx.fillStyle = colors.textMain;
         ctx.textAlign = 'center';
         ctx.fillText('واتس', waX + (btnSize / 2), btnY + 18);
         ctx.restore();
 
-        // 3. Instagram (Purple/Pink)
+        // 3. Instagram (outline only when the lead has none)
         const igX = waX + btnSize + gap;
         const isIgHover = isHovered && (this.hoveredAction === 'ig');
         const hasIg = !!r[9];
         ctx.save();
-        ctx.fillStyle = hasIg ? (isIgHover ? 'rgba(225, 48, 108, 0.35)' : 'rgba(225, 48, 108, 0.15)') : 'rgba(148, 163, 184, 0.06)';
-        this.fillRoundRect(ctx, igX, btnY, btnSize, btnSize, 6);
-        ctx.strokeStyle = hasIg ? 'rgba(225, 48, 108, 0.35)' : colors.borderSubtle;
+        if (hasIg) {
+          ctx.fillStyle = isIgHover ? colors.glow : colors.soft;
+          this.fillRoundRect(ctx, igX, btnY, btnSize, btnSize, 6);
+        }
+        ctx.strokeStyle = hasIg ? colors.borderStrong : colors.borderSubtle;
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, igX, btnY, btnSize, btnSize, 6);
         ctx.font = '700 9.5px "Cairo", sans-serif';
-        ctx.fillStyle = hasIg ? '#E1306C' : colors.textDim;
+        ctx.fillStyle = hasIg ? colors.textMain : colors.textDim;
         ctx.textAlign = 'center';
         ctx.fillText('انستا', igX + (btnSize / 2), btnY + 18);
         ctx.restore();
@@ -582,29 +595,31 @@ export class CanvasCustomerTable {
 
         ctx.save();
         if (hasNote) {
-          ctx.fillStyle = isNoteHover ? 'rgba(245, 158, 11, 0.28)' : 'rgba(245, 158, 11, 0.14)';
+          ctx.fillStyle = isNoteHover ? colors.glow : colors.soft;
           this.fillRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
-          ctx.strokeStyle = 'rgba(245, 158, 11, 0.4)';
+          ctx.strokeStyle = colors.borderStrong;
           ctx.lineWidth = 1;
           this.strokeRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
 
           ctx.font = '600 11.5px "Cairo", sans-serif';
-          ctx.fillStyle = colors.warning;
+          ctx.fillStyle = colors.textMain;
           ctx.direction = 'rtl';
           ctx.textAlign = 'right';
           const noteSnippet = st.notes;
           this.renderTruncatedText(ctx, noteSnippet, pillX + pillW - 8, pillY + 17, pillW - 16);
         } else {
-          ctx.fillStyle = isNoteHover ? 'rgba(59, 130, 246, 0.12)' : 'rgba(148, 163, 184, 0.05)';
-          this.fillRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
-          ctx.strokeStyle = isNoteHover ? colors.primary : colors.borderSubtle;
+          if (isNoteHover) {
+            ctx.fillStyle = colors.soft;
+            this.fillRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
+          }
+          ctx.strokeStyle = isNoteHover ? colors.textMuted : colors.borderSubtle;
           ctx.lineWidth = 1;
           ctx.setLineDash([3, 2]);
           this.strokeRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
           ctx.setLineDash([]);
 
           ctx.font = '500 11.5px "Cairo", sans-serif';
-          ctx.fillStyle = isNoteHover ? colors.primary : colors.textDim;
+          ctx.fillStyle = isNoteHover ? colors.textMain : colors.textDim;
           ctx.textAlign = 'center';
           ctx.fillText('+ إضافة ملاحظة', pillX + (pillW / 2), pillY + 17);
         }
@@ -632,7 +647,7 @@ export class CanvasCustomerTable {
         ctx.font = '700 11px "Cairo", sans-serif';
         ctx.textAlign = 'center';
         if (isDup) {
-          ctx.fillStyle = colors.warning;
+          ctx.fillStyle = colors.textMain;
           ctx.fillText('مكرر', x + (w / 2), centerY + 4);
         } else {
           ctx.fillStyle = colors.textDim;
@@ -654,13 +669,13 @@ export class CanvasCustomerTable {
         const isSentOn = !!st.s;
         const isSentHover = isHovered && (this.hoveredAction === 's');
         ctx.save();
-        ctx.fillStyle = isSentOn ? 'rgba(59, 130, 246, 0.25)' : (isSentHover ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)');
+        ctx.fillStyle = isSentHover ? colors.soft : 'transparent';
         this.fillRoundRect(ctx, startX, chipY, chipW, chipH, 5);
-        ctx.strokeStyle = isSentOn ? colors.primary : colors.borderSubtle;
+        ctx.strokeStyle = isSentOn ? colors.textMuted : colors.borderSubtle;
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, startX, chipY, chipW, chipH, 5);
         ctx.font = '600 11px "Cairo", sans-serif';
-        ctx.fillStyle = isSentOn ? colors.primary : colors.textMuted;
+        ctx.fillStyle = isSentOn ? colors.textMain : colors.textMuted;
         ctx.textAlign = 'center';
         ctx.fillText('اتبعت', startX + (chipW / 2), chipY + 17);
         ctx.restore();
@@ -670,13 +685,13 @@ export class CanvasCustomerTable {
         const isRepOn = !!st.r;
         const isRepHover = isHovered && (this.hoveredAction === 'r');
         ctx.save();
-        ctx.fillStyle = isRepOn ? 'rgba(245, 158, 11, 0.25)' : (isRepHover ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)');
+        ctx.fillStyle = isRepOn ? colors.glow : (isRepHover ? colors.soft : 'transparent');
         this.fillRoundRect(ctx, rX, chipY, chipW, chipH, 5);
-        ctx.strokeStyle = isRepOn ? colors.warning : colors.borderSubtle;
+        ctx.strokeStyle = isRepOn ? colors.borderStrong : colors.borderSubtle;
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, rX, chipY, chipW, chipH, 5);
         ctx.font = '600 11px "Cairo", sans-serif';
-        ctx.fillStyle = isRepOn ? colors.warning : colors.textMuted;
+        ctx.fillStyle = isRepOn ? colors.textMain : colors.textMuted;
         ctx.textAlign = 'center';
         ctx.fillText('رد', rX + (chipW / 2), chipY + 17);
         ctx.restore();
@@ -686,13 +701,13 @@ export class CanvasCustomerTable {
         const isJoinedOn = !!st.j;
         const isJoinedHover = isHovered && (this.hoveredAction === 'j');
         ctx.save();
-        ctx.fillStyle = isJoinedOn ? 'rgba(16, 185, 129, 0.3)' : (isJoinedHover ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)');
+        ctx.fillStyle = isJoinedOn ? colors.primary : (isJoinedHover ? colors.soft : 'transparent');
         this.fillRoundRect(ctx, jX, chipY, chipW, chipH, 5);
-        ctx.strokeStyle = isJoinedOn ? colors.success : colors.borderSubtle;
+        ctx.strokeStyle = isJoinedOn ? colors.primary : colors.borderSubtle;
         ctx.lineWidth = 1;
         this.strokeRoundRect(ctx, jX, chipY, chipW, chipH, 5);
         ctx.font = '700 11px "Cairo", sans-serif';
-        ctx.fillStyle = isJoinedOn ? colors.success : colors.textMuted;
+        ctx.fillStyle = isJoinedOn ? colors.onPrimary : colors.textMuted;
         ctx.textAlign = 'center';
         ctx.fillText('معانا', jX + (chipW / 2), chipY + 17);
         ctx.restore();
@@ -729,14 +744,14 @@ export class CanvasCustomerTable {
 
         ctx.save();
         if (assignedTo) {
-          ctx.fillStyle = isAssignHover ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0.15)';
+          ctx.fillStyle = isAssignHover ? colors.glow : colors.soft;
           this.fillRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
           ctx.font = '700 11px "Cairo", sans-serif';
-          ctx.fillStyle = colors.primary;
+          ctx.fillStyle = colors.textMain;
           ctx.textAlign = 'center';
           ctx.fillText(assignedTo, pillX + (pillW / 2), pillY + 17);
         } else {
-          ctx.fillStyle = isAssignHover ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)';
+          ctx.fillStyle = isAssignHover ? colors.soft : 'transparent';
           this.fillRoundRect(ctx, pillX, pillY, pillW, pillH, 6);
           ctx.font = '500 11px "Cairo", sans-serif';
           ctx.fillStyle = colors.textDim;
@@ -785,7 +800,7 @@ export class CanvasCustomerTable {
           if (isAllSelected) {
             ctx.fillStyle = colors.primary;
             this.fillRoundRect(ctx, chkX, chkY, chkSize, chkSize, 4);
-            ctx.strokeStyle = '#ffffff';
+            ctx.strokeStyle = colors.onPrimary;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(chkX + 3.5, chkY + 8);
@@ -795,7 +810,7 @@ export class CanvasCustomerTable {
           } else if (isSomeSelected) {
             ctx.fillStyle = colors.primary;
             this.fillRoundRect(ctx, chkX, chkY, chkSize, chkSize, 4);
-            ctx.strokeStyle = '#ffffff';
+            ctx.strokeStyle = colors.onPrimary;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(chkX + 4, chkY + 8);

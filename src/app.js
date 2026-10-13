@@ -50,6 +50,23 @@ const DEPT_LABELS = {
 
 const CHUNK_SIZE = 150;
 
+// Toolbar attribute filters, populated from the loaded rows.
+// `none` adds an option for rows without a value (selected as NO_VALUE).
+const NO_VALUE = '__none__';
+const PLATFORM_LABELS = { custom: 'موقع مبرمج خاص (custom)' };
+const ATTR_FILTERS = [
+  {
+    id: 'filter-platform',
+    get: r => (r[11] && !/^https?:/i.test(r[11]) ? r[11] : ''), // legacy rows may hold a maps URL here
+    all: 'كل المنصات (سلة، زد...)',
+    none: 'بدون منصة معروفة',
+    label: v => PLATFORM_LABELS[v] || v
+  },
+  { id: 'filter-sector', get: r => r[LX.SECTOR], all: 'كل القطاعات' },
+  { id: 'filter-service', get: r => r[LX.SERVICE], all: 'كل الخدمات المقترحة' },
+  { id: 'filter-erp', get: r => r[LX.ERP_GRADE], all: 'كل تصنيفات ERP', label: v => 'ERP ' + v, sortByValue: true }
+];
+
 // Utility functions
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -167,7 +184,6 @@ export async function initApp() {
 
   // Initialize storage manager (handles local or firebase)
   await dbManager.init();
-  await seedDefaultUsers();
 
   // Listen to storage status
   dbManager.onStatusChange((status) => {
@@ -249,55 +265,6 @@ export async function initApp() {
   });
 
   renderApp();
-}
-
-async function seedDefaultUsers() {
-  try {
-    const existing = await db.doc('users/ahmed').get();
-    if (!existing.exists) {
-      await db.doc('users/ahmed').set(await mkCred('123456'));
-      await db.doc('profiles/ahmed').set({ name: 'أحمد (سيلز)', role: 'sales' });
-      await db.doc('users/sara').set(await mkCred('123456'));
-      await db.doc('profiles/sara').set({ name: 'سارة (سيلز)', role: 'sales' });
-      await db.doc('users/omar').set(await mkCred('123456'));
-      await db.doc('profiles/omar').set({ name: 'عمر (برمجة)', role: 'dev' });
-    }
-
-    const demoClient = await db.doc('clients/demo_1').get();
-    if (!demoClient.exists) {
-      await db.doc('clients/demo_1').set({
-        name: 'مؤسسة الصفوة للتجارة',
-        cat: 'تجارة إلكترونية وأزياء',
-        city: 'الرياض',
-        phone: '0501234567',
-        wa: 'https://wa.me/966501234567',
-        site: 'https://example.com',
-        ig: '',
-        plat: 'سلة / شوبيفاي',
-        by: 'ahmed',
-        at: Date.now() - 86400000 * 3,
-        portalActive: true,
-        portalUsername: '0501234567',
-        portalPassword: '123456',
-        seo: 1,
-        media: 1,
-        social: 2,
-        dev: 1,
-        ui: 2,
-        deptDetails: {
-          seo: { status: 1, assignee: 'أحمد', deadline: '25 أكتوبر 2026', note: 'جاري فحص الكلمات المفتاحية وضبط السيو الداخلي للمنتجات' },
-          media: { status: 1, assignee: 'سارة', deadline: '20 أكتوبر 2026', note: 'تم إطلاق الحملات الإعلانية التجريبية واستهداف المهتمين' },
-          social: { status: 2, assignee: 'مريم', deadline: '15 أكتوبر 2026', note: 'تم اعتماد وتجهيز خطة المحتوى ونشر بوستات الهوية' },
-          dev: { status: 1, assignee: 'عمر', deadline: '28 أكتوبر 2026', note: 'برمجة وتخصيص المتجر، ربط بوابات تمارا وتابي والدفع الإلكتروني' },
-          ui: { status: 2, assignee: 'ياسين', deadline: '12 أكتوبر 2026', note: 'تم تسليم كافة تصاميم الواجهات والبانرات الإعلانية بنجاح' }
-        },
-        clientNote: 'يسير العمل على مشروعكم بشكل ممتاز ومتقدم عن الجدول الزمني المخطط له!',
-        expectedDelivery: '30 أكتوبر 2026'
-      });
-    }
-  } catch (err) {
-    console.warn('Seed users error:', err);
-  }
 }
 
 function loadInitialLeads() {
@@ -500,6 +467,8 @@ function showView(viewId) {
   document.querySelectorAll('.view-container').forEach(el => {
     el.classList.toggle('active', el.id === `view-${viewId}`);
   });
+  // Monochrome login screen (header included); see .auth-mode in style.css
+  document.body.classList.toggle('auth-mode', viewId === 'login');
   if (viewId === 'leads' && state.canvasTable) {
     requestAnimationFrame(() => state.canvasTable.handleResize());
   }
@@ -691,23 +660,26 @@ function populateFilterDropdowns() {
   fs.innerHTML = '<option value="">كل الشيتات والمصادر (' + sheets.length + ')</option>' + sheets.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
   fs.value = prevFs;
 
-  // leads-hub enrichment filters: hidden when the loaded rows don't carry the field
-  [
-    ['filter-sector', LX.SECTOR, 'كل القطاعات'],
-    ['filter-service', LX.SERVICE, 'كل الخدمات المقترحة'],
-    ['filter-erp', LX.ERP_GRADE, 'كل تصنيفات ERP'],
-  ].forEach(([id, idx, allLabel]) => {
+  // Lead attribute filters: hidden when the loaded rows don't carry the field
+  ATTR_FILTERS.forEach(({ id, get, all, none, label = v => v, sortByValue }) => {
     const sel = $(id);
     if (!sel) return;
     const counts = new Map();
-    state.S.forEach(r => { if (r[idx]) counts.set(r[idx], (counts.get(r[idx]) || 0) + 1); });
+    let noneCount = 0;
+    state.S.forEach(r => {
+      const v = get(r);
+      if (v) counts.set(v, (counts.get(v) || 0) + 1);
+      else noneCount++;
+    });
     const prev = sel.value;
-    const opts = idx === LX.ERP_GRADE
+    const opts = sortByValue
       ? [...counts.keys()].sort()
       : [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a));
-    sel.innerHTML = `<option value="">${allLabel}</option>` +
-      opts.map(v => `<option value="${esc(v)}">${esc(idx === LX.ERP_GRADE ? 'ERP ' + v : v)} (${counts.get(v).toLocaleString('en')})</option>`).join('');
-    sel.value = counts.has(prev) ? prev : '';
+    const showNone = !!(none && noneCount && counts.size);
+    sel.innerHTML = `<option value="">${all}</option>` +
+      opts.map(v => `<option value="${esc(v)}">${esc(label(v))} (${counts.get(v).toLocaleString('en')})</option>`).join('') +
+      (showNone ? `<option value="${NO_VALUE}">${none} (${noneCount.toLocaleString('en')})</option>` : '');
+    sel.value = counts.has(prev) || (prev === NO_VALUE && showNone) ? prev : '';
     sel.style.display = counts.size ? '' : 'none';
   });
 
@@ -746,9 +718,10 @@ function filterLeads() {
   const fd = $('filter-duplicate').value;
   const fa = $('filter-assignee') ? $('filter-assignee').value : '';
   const fsel = $('filter-selected') ? $('filter-selected').value : '';
-  const fsector = $('filter-sector') ? $('filter-sector').value : '';
-  const fservice = $('filter-service') ? $('filter-service').value : '';
-  const ferp = $('filter-erp') ? $('filter-erp').value : '';
+  const fattrs = ATTR_FILTERS
+    .map(f => [f.get, $(f.id) ? $(f.id).value : ''])
+    .filter(([, v]) => v)
+    .map(([get, v]) => [get, v === NO_VALUE ? '' : v]);
 
   state.filteredIndices = [];
 
@@ -764,10 +737,8 @@ function filterLeads() {
     // Sheet filter
     if (fs && r[1] !== fs) continue;
 
-    // Sector / suggested service / ERP grade filters
-    if (fsector && r[LX.SECTOR] !== fsector) continue;
-    if (fservice && r[LX.SERVICE] !== fservice) continue;
-    if (ferp && r[LX.ERP_GRADE] !== ferp) continue;
+    // Platform / sector / suggested service / ERP grade filters
+    if (fattrs.some(([get, v]) => (get(r) || '') !== v)) continue;
 
     // Website presence filter (r[12] is boolean hasWebsite)
     if (fweb === 'has_web' && !r[12]) continue;
@@ -1476,23 +1447,23 @@ function renderKPIs() {
   const cards = [];
   if (state.role === 'owner') {
     cards.push(
-      { label: 'إجمالي العملاء', val: state.S.length, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', icon: 'users' },
-      { label: 'العملاء المعيّنون', val: state.A.size, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)', icon: 'zap' }
+      { label: 'إجمالي العملاء', val: state.S.length, icon: 'users' },
+      { label: 'العملاء المعيّنون', val: state.A.size, icon: 'zap' }
     );
   } else {
     cards.push(
-      { label: 'العملاء المعيّنون لك', val: state.S.length, color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', icon: 'clipboard-list' }
+      { label: 'العملاء المعيّنون لك', val: state.S.length, icon: 'clipboard-list' }
     );
   }
 
   cards.push(
-    { label: 'تم التواصل (اتبعت)', val: sentCount, color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.15)', icon: 'share-2' },
-    { label: 'تفاعلوا (ردوا)', val: repliedCount, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', icon: 'message-square' },
-    { label: 'تعاقدوا (دخلوا معانا)', val: joinedCount, color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)', icon: 'check-circle-2' }
+    { label: 'تم التواصل (اتبعت)', val: sentCount, icon: 'share-2' },
+    { label: 'تفاعلوا (ردوا)', val: repliedCount, icon: 'message-square' },
+    { label: 'تعاقدوا (دخلوا معانا)', val: joinedCount, icon: 'check-circle-2' }
   );
 
   $('leads-kpis').innerHTML = cards.map(c => `
-    <div class="kpi-card" style="--kpi-color: ${c.color}; --kpi-bg: ${c.bg}">
+    <div class="kpi-card">
       <div class="kpi-icon"><i data-lucide="${c.icon}"></i></div>
       <div class="kpi-info">
         <span>${c.label}</span>
@@ -1629,10 +1600,10 @@ function renderClientsView() {
           </div>
           <div style="flex-shrink: 0; display: flex; align-items: center; gap: 6px;">
             ${hasSite 
-              ? `<a href="${siteUrl}" target="_blank" rel="noopener noreferrer" class="link-btn web" title="زيارة الموقع: ${esc(rawSite)}" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:6px;background:rgba(59,130,246,0.12);color:var(--primary);font-size:12px;font-weight:700;border:1px solid rgba(59,130,246,0.25)">
+              ? `<a href="${siteUrl}" target="_blank" rel="noopener noreferrer" class="link-btn web" title="زيارة الموقع: ${esc(rawSite)}" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:700;border:1px solid var(--border-medium)">
                   <i data-lucide="globe"></i> <span>الموقع</span>
                 </a>`
-              : `<button class="btn-xs btn-secondary btn-create-site" data-client-id="${id}" title="العميل ليس لديه موقع - انقر لتسجيل رابط الموقع" style="background:rgba(245,158,11,0.15);color:var(--warning);border:1px dashed rgba(245,158,11,0.35);font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer">
+              : `<button class="btn-xs btn-secondary btn-create-site" data-client-id="${id}" title="العميل ليس لديه موقع - انقر لتسجيل رابط الموقع" style="background:transparent;color:var(--warning);border:1px dashed var(--border-medium);font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer">
                   <i data-lucide="plus"></i> <span>إنشاء موقع</span>
                 </button>`
             }
@@ -1663,13 +1634,13 @@ function renderClientsView() {
             let handoffBadge = '';
             if (incomingFrom) {
               handoffBadge += `
-                <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${incomingFrom}" title="مهمة موجهة من ${DEPT_LABELS[incomingFrom] || incomingFrom}: ${esc(incomingNote)}" style="margin-top:3px;font-size:10px;background:rgba(59,130,246,0.18);color:var(--primary);border:1px solid rgba(59,130,246,0.35);padding:3px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">
+                <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${incomingFrom}" title="مهمة موجهة من ${DEPT_LABELS[incomingFrom] || incomingFrom}: ${esc(incomingNote)}" style="margin-top:3px;font-size:10px;background:var(--primary-glow);color:var(--primary);border:1px solid var(--border-medium);padding:3px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">
                   <i data-lucide="inbox"></i> <span>من ${DEPT_LABELS[incomingFrom] || incomingFrom}</span>
                 </div>`;
             }
             if (details.note) {
               handoffBadge += `
-                <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${d}" title="الملاحظة: ${esc(details.note)}" style="margin-top:3px;font-size:10px;background:rgba(16,185,129,0.15);color:var(--success);border:1px solid rgba(16,185,129,0.3);padding:3px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">
+                <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${d}" title="الملاحظة: ${esc(details.note)}" style="margin-top:3px;font-size:10px;background:var(--primary-soft);color:var(--success);border:1px solid var(--border-medium);padding:3px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px">
                   <i data-lucide="file-text"></i> <span>ملاحظة ${details.handoffTo ? '→ ' + (DEPT_LABELS[details.handoffTo] || details.handoffTo) : ''}</span>
                 </div>`;
             }
@@ -1751,10 +1722,10 @@ function renderClientsView() {
         </td>
         <td>
           ${hasSite 
-            ? `<a href="${siteUrl}" target="_blank" rel="noopener noreferrer" class="link-btn web" title="زيارة الموقع: ${esc(rawSite)}" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:6px;background:rgba(59,130,246,0.12);color:var(--primary);font-size:12px;font-weight:700;border:1px solid rgba(59,130,246,0.25)">
+            ? `<a href="${siteUrl}" target="_blank" rel="noopener noreferrer" class="link-btn web" title="زيارة الموقع: ${esc(rawSite)}" style="display:inline-flex;align-items:center;gap:4px;text-decoration:none;padding:5px 10px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:700;border:1px solid var(--border-medium)">
                 <i data-lucide="globe" style="width:13px;height:13px"></i> <span>الموقع</span>
               </a>`
-            : `<button class="btn-xs btn-secondary btn-create-site" data-client-id="${id}" title="العميل ليس لديه موقع - انقر لتسجيل رابط الموقع" style="background:rgba(245,158,11,0.12);color:var(--warning);border:1px dashed rgba(245,158,11,0.35);font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer">
+            : `<button class="btn-xs btn-secondary btn-create-site" data-client-id="${id}" title="العميل ليس لديه موقع - انقر لتسجيل رابط الموقع" style="background:transparent;color:var(--warning);border:1px dashed var(--border-medium);font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:6px;cursor:pointer">
                 <i data-lucide="plus" style="width:12px;height:12px"></i> <span>إنشاء موقع</span>
               </button>`
           }
@@ -1787,14 +1758,14 @@ function renderClientsView() {
       let handoffBadge = '';
       if (incomingFrom) {
         handoffBadge += `
-          <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${incomingFrom}" title="مهمة موجهة من ${DEPT_LABELS[incomingFrom] || incomingFrom}: ${esc(incomingNote)}" style="margin-top:3px;font-size:10px;background:rgba(59,130,246,0.18);color:var(--primary);border:1px solid rgba(59,130,246,0.35);padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${incomingFrom}" title="مهمة موجهة من ${DEPT_LABELS[incomingFrom] || incomingFrom}: ${esc(incomingNote)}" style="margin-top:3px;font-size:10px;background:var(--primary-glow);color:var(--primary);border:1px solid var(--border-medium);padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             <i data-lucide="inbox" style="width:11px;height:11px"></i> <span>من ${DEPT_LABELS[incomingFrom] || incomingFrom}</span>
           </div>
         `;
       }
       if (details.note) {
         handoffBadge += `
-          <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${d}" title="الملاحظة: ${esc(details.note)}" style="margin-top:3px;font-size:10px;background:rgba(16,185,129,0.15);color:var(--success);border:1px solid rgba(16,185,129,0.3);padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          <div class="btn-handoff-pill" data-client-id="${id}" data-dept="${d}" data-open-dept="${d}" title="الملاحظة: ${esc(details.note)}" style="margin-top:3px;font-size:10px;background:var(--primary-soft);color:var(--success);border:1px solid var(--border-medium);padding:2px 6px;border-radius:4px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             <i data-lucide="file-text" style="width:11px;height:11px"></i> <span>ملاحظة ${details.handoffTo ? '→ ' + (DEPT_LABELS[details.handoffTo] || details.handoffTo) : ''}</span>
           </div>
         `;
@@ -1827,7 +1798,7 @@ function renderClientsView() {
     if (isAdmin) {
       desktopTableHtml += `
         <td style="text-align: center;">
-          <button class="btn-xs btn-primary btn-edit-portal" data-client-id="${id}" title="عرض تفاصيل العميل، الهاتف، وبيانات منصة تابع" style="padding: 6px 12px; font-size: 12px; font-weight: 800; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; box-shadow: 0 2px 8px rgba(59,130,246,0.25);">
+          <button class="btn-xs btn-primary btn-edit-portal" data-client-id="${id}" title="عرض تفاصيل العميل، الهاتف، وبيانات منصة تابع" style="padding: 6px 12px; font-size: 12px; font-weight: 800; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;">
             <i data-lucide="shield-check" style="width: 14px; height: 14px;"></i>
             <span>بوابة تابع</span>
           </button>
@@ -2034,7 +2005,7 @@ function renderDetectedLinks(text, containerEl) {
       label = u.hostname.replace('www.', '');
     } catch {}
     return `
-      <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:rgba(59,130,246,0.15);color:var(--primary);border:1px solid rgba(59,130,246,0.3);font-size:11.5px;font-weight:700;text-decoration:none;direction:ltr">
+      <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:var(--primary-soft);color:var(--primary);border:1px solid var(--border-medium);font-size:11.5px;font-weight:700;text-decoration:none;direction:ltr">
         <i data-lucide="link-2" style="width: 13px; height: 13px;"></i> <span>${esc(label)}</span>
       </a>
     `;
@@ -2752,11 +2723,8 @@ async function confirmExcelImport() {
 // ----------------- GLOBAL EVENT LISTENERS -----------------
 function setupEventListeners() {
   // Login Submissions
-  $('btn-admin-login').onclick = handleAdminLogin;
-  $('admin-login-pw').onkeydown = (e) => { if (e.key === 'Enter') handleAdminLogin(); };
-
-  $('btn-team-login').onclick = handleTeamLogin;
-  $('team-login-pw').onkeydown = (e) => { if (e.key === 'Enter') handleTeamLogin(); };
+  $('form-login-admin').onsubmit = (e) => { e.preventDefault(); handleAdminLogin(); };
+  $('form-login-team').onsubmit = (e) => { e.preventDefault(); handleTeamLogin(); };
 
   // Logout
   $('btn-logout').onclick = async () => {
@@ -2784,7 +2752,7 @@ function setupEventListeners() {
   };
   if ($('filter-sort')) $('filter-sort').onchange = filterLeads;
   $('filter-sheet').onchange = filterLeads;
-  ['filter-sector', 'filter-service', 'filter-erp'].forEach(id => { if ($(id)) $(id).onchange = filterLeads; });
+  ATTR_FILTERS.forEach(({ id }) => { if ($(id)) $(id).onchange = filterLeads; });
   if ($('filter-website')) $('filter-website').onchange = filterLeads;
   $('filter-status').onchange = filterLeads;
   if ($('filter-notes')) $('filter-notes').onchange = filterLeads;
@@ -2911,21 +2879,30 @@ function setupEventListeners() {
 }
 
 // ----------------- LOGIN LOGIC -----------------
+// Disables a login button with a busy label; returns a function that restores it.
+function setLoginBusy(btn, busyText) {
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<i data-lucide="refresh-cw" class="spin"></i> <span>${busyText}</span>`;
+  initIcons();
+  return () => {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  };
+}
+
 async function handleAdminLogin() {
   const pw = $('admin-login-pw').value.trim();
   const msg = $('admin-login-msg');
   msg.textContent = '';
 
   if (!pw) {
-    msg.textContent = 'من فضلك اكتب كلمة مرور السوبر أدمن';
+    msg.textContent = 'اكتب كلمة مرور السوبر أدمن';
+    $('admin-login-pw').focus();
     return;
   }
 
-  const btn = $('btn-admin-login');
-  btn.disabled = true;
-  const originalText = btn.innerHTML;
-  btn.innerHTML = `<i data-lucide="refresh-cw" class="spin"></i> <span>جاري فك التشفير والتحقق من الشيت...</span>`;
-  initIcons();
+  const restore = setLoginBusy($('btn-admin-login'), 'جاري فك التشفير...');
 
   try {
     const data = await decryptAll(pw);
@@ -2943,11 +2920,10 @@ async function handleAdminLogin() {
     renderApp();
   } catch (err) {
     console.error('Decryption failed:', err);
-    msg.textContent = 'كلمة المرور غير صحيحة! لم نتمكن من فك تشفير بيانات الشيت.';
+    msg.textContent = 'كلمة المرور غير صحيحة';
+    $('admin-login-pw').select();
   } finally {
-    btn.disabled = false;
-    btn.innerHTML = originalText;
-    initIcons();
+    restore();
   }
 }
 
@@ -2959,21 +2935,17 @@ async function handleTeamLogin() {
 
   if (!u || !p) {
     msg.textContent = 'اكتب اسم الدخول وكلمة المرور';
+    $(u ? 'team-login-pw' : 'team-login-user').focus();
     return;
   }
 
-  msg.textContent = 'جاري التحقق...';
+  const restore = setLoginBusy($('btn-team-login'), 'جاري التحقق...');
   try {
     const userDoc = await db.doc(`users/${u}`).get();
-    if (!userDoc.exists) {
-      msg.textContent = 'بيانات الدخول غير صحيحة';
-      return;
-    }
-    const cred = userDoc.data();
-    const hashed = await hpw(p, b2u(cred.salt), cred.it);
-
-    if (hashed !== cred.hash) {
-      msg.textContent = 'بيانات الدخول غير صحيحة';
+    const cred = userDoc.exists ? userDoc.data() : null;
+    if (!cred || (await hpw(p, b2u(cred.salt), cred.it)) !== cred.hash) {
+      msg.textContent = 'اسم الدخول أو كلمة المرور غير صحيحة';
+      $('team-login-pw').select();
       return;
     }
 
@@ -2987,7 +2959,9 @@ async function handleTeamLogin() {
     renderApp();
   } catch (err) {
     console.error(err);
-    msg.textContent = 'تعذّر تسجيل الدخول';
+    msg.textContent = 'تعذّر تسجيل الدخول، حاول مرة أخرى';
+  } finally {
+    restore();
   }
 }
 

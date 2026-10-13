@@ -78,68 +78,46 @@
 
       <!-- View: Login -->
       <main class="view-container" id="view-login">
-        <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px;">
-          <div class="modal-card" style="max-width: 440px;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <div style="display: flex; justify-content: center; margin-bottom: 10px;">
-                <div style="width: 52px; height: 52px; border-radius: 12px; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; color: var(--primary);">
-                  <i data-lucide="shield-check" style="width: 28px; height: 28px;"></i>
-                </div>
-              </div>
-              <h2 style="font-size: 22px; font-weight: 800;">تسجيل الدخول للمنصة</h2>
-              <p style="font-size: 13.5px; color: var(--text-muted);">
-                اختر نوع الحساب للمتابعة إلى لوحة التحكم
-              </p>
+        <div class="auth-wrap">
+          <div class="auth-card">
+            <div class="auth-head">
+              <div class="auth-logo"><i data-lucide="lock"></i></div>
+              <h2>تسجيل الدخول</h2>
+              <p>اختر نوع الحساب وادخل بياناتك</p>
             </div>
 
-            <!-- Login Tabs -->
-            <div style="display: flex; gap: 6px; background: var(--bg-canvas); padding: 4px; border-radius: var(--radius-md); margin-bottom: 20px; border: 1px solid var(--border-subtle);">
-              <button id="tab-login-admin" class="tab-btn active" style="flex: 1; justify-content: center;">
-                <i data-lucide="key-round"></i>
-                <span>سوبر أدمن</span>
-              </button>
-              <button id="tab-login-team" class="tab-btn" style="flex: 1; justify-content: center;">
-                <i data-lucide="users"></i>
-                <span>فريق العمل</span>
-              </button>
+            <div class="auth-seg" role="tablist">
+              <button type="button" id="tab-login-admin" class="auth-seg-btn active" role="tab" aria-selected="true">سوبر أدمن</button>
+              <button type="button" id="tab-login-team" class="auth-seg-btn" role="tab" aria-selected="false">فريق العمل</button>
             </div>
 
-            <!-- Super Admin Login Form -->
-            <div id="form-login-admin">
-              <div class="form-group">
-                <label>كلمة مرور السوبر أدمن:</label>
-                <input id="admin-login-pw" type="password" placeholder="اكتب كلمة المرور..." autocomplete="current-password" />
-              </div>
-              <button id="btn-admin-login" class="btn-primary" style="width: 100%; height: 42px; justify-content: center; font-size: 14px;">
-                <i data-lucide="lock"></i>
-                <span>دخول وفك تشفير البيانات</span>
-              </button>
-              <div class="msg" id="admin-login-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px;"></div>
-              
-              <div style="margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-md); background: var(--bg-canvas); border: 1px solid var(--border-subtle); font-size: 12.5px; line-height: 1.6;">
-                <b style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px; color: var(--primary);">
-                  <i data-lucide="lock" style="width: 15px; height: 15px;"></i>
-                  <span>أمان وتشفير الشيت (AES-256-GCM):</span>
-                </b>
-                <div>بيانات العملاء مشفرة بالكامل ولا يمكن لأي شخص الاطلاع عليها أو استخراجها من المتصفح إلا بكلمة المرور المعتمدة.</div>
-              </div>
-            </div>
+            <!-- Super Admin: master password decrypts the leads dataset -->
+            <form id="form-login-admin" class="auth-form" novalidate>
+              <label class="auth-field">
+                <span>كلمة المرور</span>
+                <input id="admin-login-pw" type="password" placeholder="كلمة مرور السوبر أدمن" autocomplete="current-password" />
+              </label>
+              <button type="submit" id="btn-admin-login" class="auth-submit"><span>دخول</span></button>
+              <div class="auth-msg" id="admin-login-msg" role="alert"></div>
+            </form>
 
-            <!-- Team Member Login Form -->
-            <div id="form-login-team" style="display: none;">
-              <div class="form-group">
-                <label>اسم الدخول (Username):</label>
-                <input id="team-login-user" placeholder="مثال: ahmed" style="direction: ltr;" autocomplete="username" />
-              </div>
-              <div class="form-group">
-                <label>كلمة المرور:</label>
-                <input id="team-login-pw" type="password" placeholder="••••••••" style="direction: ltr;" autocomplete="current-password" />
-              </div>
-              <button id="btn-team-login" class="btn-primary" style="width: 100%; height: 42px; justify-content: center; font-size: 14px;">
-                <i data-lucide="user-check"></i>
-                <span>تسجيل الدخول</span>
-              </button>
-              <div class="msg" id="team-login-msg" style="color: var(--danger); font-size: 13px; text-align: center; margin-top: 10px; min-height: 20px;"></div>
+            <!-- Team member: username + password created by the Super Admin -->
+            <form id="form-login-team" class="auth-form" style="display: none;" novalidate>
+              <label class="auth-field">
+                <span>اسم الدخول</span>
+                <input id="team-login-user" placeholder="username" dir="ltr" autocomplete="username" autocapitalize="off" spellcheck="false" />
+              </label>
+              <label class="auth-field">
+                <span>كلمة المرور</span>
+                <input id="team-login-pw" type="password" placeholder="••••••••" dir="ltr" autocomplete="current-password" />
+              </label>
+              <button type="submit" id="btn-team-login" class="auth-submit"><span>دخول</span></button>
+              <div class="auth-msg" id="team-login-msg" role="alert"></div>
+            </form>
+
+            <div class="auth-foot">
+              <i data-lucide="shield-check"></i>
+              <span>بيانات العملاء مشفرة ولا تُفتح إلا بكلمة المرور</span>
             </div>
           </div>
         </div>
@@ -181,6 +159,10 @@
 
               <select class="filter-select" id="filter-sheet">
                 <option value="">كل الشيتات</option>
+              </select>
+
+              <select class="filter-select" id="filter-platform" style="display:none">
+                <option value="">كل المنصات (سلة، زد...)</option>
               </select>
 
               <select class="filter-select" id="filter-sector" style="display:none">
@@ -508,7 +490,7 @@
         <div class="modal-card" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white;">
+              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: var(--primary); display: flex; align-items: center; justify-content: center; color: var(--on-primary);">
                 <i data-lucide="rocket" style="width: 20px; height: 20px;"></i>
               </div>
               <div>
@@ -592,7 +574,7 @@
         <div class="modal-card" style="max-width: 520px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: linear-gradient(135deg, #10b981, #059669); display: flex; align-items: center; justify-content: center; color: white;">
+              <div style="width: 38px; height: 38px; border-radius: var(--radius-md); background: var(--primary); display: flex; align-items: center; justify-content: center; color: var(--on-primary);">
                 <i data-lucide="zap" style="width: 20px; height: 20px;"></i>
               </div>
               <div>
@@ -649,7 +631,7 @@
               <span>القسم: <b id="handoff-modal-dept-name" style="color:var(--primary)">—</b></span>
             </div>
 
-            <div id="handoff-incoming-banner" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:var(--radius-sm);background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.25);font-size:12.5px;line-height:1.5;">
+            <div id="handoff-incoming-banner" style="display:none;margin-bottom:12px;padding:10px 12px;border-radius:var(--radius-sm);background:var(--primary-soft);border:1px solid var(--border-medium);font-size:12.5px;line-height:1.5;">
               <div style="font-weight:700;color:var(--primary);margin-bottom:4px;display:flex;align-items:center;gap:6px">
                 <i data-lucide="inbox" style="width: 14px; height: 14px;"></i>
                 <span>مهمة موجهة من قسم:</span>
@@ -699,18 +681,19 @@
 
     <!-- In-page Tab switcher for login modal and dropzone click -->
     <script>
-      document.getElementById('tab-login-admin').addEventListener('click', function() {
-        this.classList.add('active');
-        document.getElementById('tab-login-team').classList.remove('active');
-        document.getElementById('form-login-admin').style.display = 'block';
-        document.getElementById('form-login-team').style.display = 'none';
-      });
-      document.getElementById('tab-login-team').addEventListener('click', function() {
-        this.classList.add('active');
-        document.getElementById('tab-login-admin').classList.remove('active');
-        document.getElementById('form-login-team').style.display = 'block';
-        document.getElementById('form-login-admin').style.display = 'none';
-      });
+      function showLoginTab(tab) {
+        ['admin', 'team'].forEach(function(t) {
+          var on = t === tab;
+          var btn = document.getElementById('tab-login-' + t);
+          btn.classList.toggle('active', on);
+          btn.setAttribute('aria-selected', on ? 'true' : 'false');
+          document.getElementById('form-login-' + t).style.display = on ? 'block' : 'none';
+          document.getElementById(t + '-login-msg').textContent = '';
+        });
+        document.getElementById(tab === 'admin' ? 'admin-login-pw' : 'team-login-user').focus();
+      }
+      document.getElementById('tab-login-admin').addEventListener('click', function() { showLoginTab('admin'); });
+      document.getElementById('tab-login-team').addEventListener('click', function() { showLoginTab('team'); });
       document.getElementById('excel-dropzone').addEventListener('click', function() {
         document.getElementById('excel-file-input').click();
       });
