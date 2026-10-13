@@ -2746,7 +2746,7 @@ function renderUsersView() {
     tr.querySelector('.btn-copy-user').onclick = async () => {
       let pw = sessionPasswords.get(uid);
       if (!pw) {
-        const ok = await ask(
+        const ok = await ask( 
           `كلمة مرور "${nm(uid)}" محفوظة مشفّرة ومينفعش تظهر تاني. تعمل له كلمة مرور جديدة وتنسخ بياناته؟ القديمة هتبطّل تشتغل.`,
           'كلمة مرور جديدة ونسخ',
           'إلغاء'
