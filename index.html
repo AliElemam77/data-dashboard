@@ -497,6 +497,20 @@
             <textarea id="modal-notes-textarea" rows="4" placeholder="اكتب تفاصيل التواصل، متى سيعاود الاتصال، ما تم الاتفاق عليه، العرض المطلوب..." style="width: 100%; padding: 10px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-medium); background: var(--bg-surface); color: var(--text-main); font-family: inherit; font-size: 13.5px; resize: vertical; outline: none;"></textarea>
           </div>
 
+          <div class="form-group" id="notes-images-group">
+            <label style="display:flex;align-items:center;gap:6px;"><i data-lucide="image" style="width:14px;height:14px;"></i><span>صور ملاحظات موقع العميل (اختياري — بتترفع تلقائياً على imgbb):</span></label>
+            <div id="modal-notes-images-preview" class="notes-images-preview"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+              <button type="button" class="btn-secondary" id="btn-notes-add-image" style="font-size:12.5px;"><i data-lucide="upload"></i><span>إرفاق صورة من الجهاز</span></button>
+              <div style="display:flex;gap:6px;flex:1;min-width:200px;">
+                <input type="url" id="notes-image-url-input" placeholder="أو الصق رابط صورة https://... ثم إضافة" style="flex:1;padding:8px 10px;border-radius:var(--radius-md);border:1px solid var(--border-medium);background:var(--bg-surface);color:var(--text-main);font-size:12.5px;direction:ltr;" />
+                <button type="button" class="btn-secondary" id="btn-notes-add-image-url" style="font-size:12.5px;flex-shrink:0;"><i data-lucide="link-2"></i><span>إضافة</span></button>
+              </div>
+            </div>
+            <input type="file" id="notes-image-input" accept="image/*" multiple hidden />
+            <div id="notes-image-upload-status" style="font-size:12px;color:var(--text-muted);margin-top:6px;min-height:18px;"></div>
+          </div>
+
           <!-- Quick Tags -->
           <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px;">
             <button type="button" class="quick-note-tag" data-tag="مهتم جداً"><i data-lucide="flame"></i> <span>مهتم جداً</span></button>

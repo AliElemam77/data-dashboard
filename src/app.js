@@ -6,6 +6,11 @@ import { initIcons } from './icons.js';
 import { getSupabaseConfig, saveSupabaseConfig, resetSupabaseClient } from './supabase.js';
 import * as XLSX from 'xlsx';
 
+// imgbb image hosting for lead-note screenshots (site feedback, issues, etc.)
+// Key is a public client-side upload key (upload-only, safe to ship in frontend).
+const IMGBB_API_KEY = '53626d4fadf063b8516406c1553a356d';
+const IMGBB_UPLOAD_URL = `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`;
+
 // Global application state
 const state = {
   me: null, // { id, name, isOwner }
@@ -862,9 +867,9 @@ function filterLeads() {
     if (fweb === 'has_web' && !r[12]) continue;
     if (fweb === 'no_web' && r[12]) continue;
 
-    // Notes filter
-    if (fnotes === 'has_notes' && !st.notes) continue;
-    if (fnotes === 'no_notes' && st.notes) continue;
+    // Notes filter (text OR attached imgbb images count as notes)
+    if (fnotes === 'has_notes' && !hasLeadNotes(st)) continue;
+    if (fnotes === 'no_notes' && hasLeadNotes(st)) continue;
 
     // Duplicate filter
     const isDup = !!r[14] || !r.first;
@@ -899,7 +904,12 @@ function filterLeads() {
       }
       const matchText = r._searchText.includes(q);
       const matchNotes = st.notes && st.notes.toLowerCase().includes(q);
-      if (!matchText && !matchNotes) continue;
+      const matchImgs = getNoteImages(st).some(o => {
+        const url = (typeof o === 'string' ? o : o.url || '').toLowerCase();
+        const cap = (typeof o === 'string' ? '' : (o.caption || '')).toLowerCase();
+        return url.includes(q) || (cap && cap.includes(q));
+      });
+      if (!matchText && !matchNotes && !matchImgs) continue;
     }
 
     state.filteredIndices.push(i);
@@ -922,8 +932,8 @@ function filterLeads() {
         return bNoWeb - aNoWeb;
       }
       if (fsort === 'has_notes_first') {
-        const aNotes = state.L.get(ra[0])?.notes ? 1 : 0;
-        const bNotes = state.L.get(rb[0])?.notes ? 1 : 0;
+        const aNotes = hasLeadNotes(state.L.get(ra[0])) ? 1 : 0;
+        const bNotes = hasLeadNotes(state.L.get(rb[0])) ? 1 : 0;
         return bNotes - aNotes;
       }
       if (fsort === 'erp_desc') return (Number(rb[LX.ERP_SCORE]) || 0) - (Number(ra[LX.ERP_SCORE]) || 0);
@@ -1041,10 +1051,13 @@ function sortLeadsByColumn(colId, asc) {
         valA = state.A.get(rA[0]) || '';
         valB = state.A.get(rB[0]) || '';
         break;
-      case 'notes':
-        valA = state.L.get(rA[0])?.notes || '';
-        valB = state.L.get(rB[0])?.notes || '';
+      case 'notes': {
+        const sa = state.L.get(rA[0]);
+        const sb = state.L.get(rB[0]);
+        valA = (sa?.notes || '') + (getNoteImages(sa).length ? ` 📷${getNoteImages(sa).length}` : '');
+        valB = (sb?.notes || '') + (getNoteImages(sb).length ? ` 📷${getNoteImages(sb).length}` : '');
         break;
+      }
       default:
         valA = rA[3] || '';
         valB = rB[3] || '';
@@ -1150,7 +1163,134 @@ function openQuickAssignDialog(cid, clientName) {
   };
 }
 
-// ----------------- SALES LEAD NOTES MODAL -----------------
+// ----------------- SALES LEAD NOTES MODAL (text + imgbb images + per-image caption) -----------------
+let pendingNoteImages = []; // [{ url, caption }] for the currently opened notes modal
+
+function normalizeNoteImage(v) {
+  if (!v) return null;
+  if (typeof v === 'string') {
+    const url = v.trim();
+    return url ? { url, caption: '' } : null;
+  }
+  if (typeof v === 'object') {
+    const url = (v.url || v.displayUrl || v.display_url || '').trim();
+    if (!url) return null;
+    return { url, caption: String(v.caption ?? v.note ?? v.text ?? '').trim().slice(0, 300) };
+  }
+  return null;
+}
+
+function getNoteImages(st) {
+  if (!st) return [];
+  const raw = st.noteImages ?? st.note_images ?? st.images ?? [];
+  if (!raw) return [];
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map(normalizeNoteImage).filter(Boolean);
+    } catch {}
+    return raw.split('\n').map(s => s.trim()).filter(s => /^https?:\/\//i.test(s)).map(url => ({ url, caption: '' }));
+  }
+  if (Array.isArray(raw)) return raw.map(normalizeNoteImage).filter(Boolean);
+  return [];
+}
+
+function getNoteImageUrl(item) {
+  if (!item) return '';
+  return typeof item === 'string' ? item : (item.url || '');
+}
+
+function hasLeadNotes(st) {
+  if (!st) return false;
+  return !!(st.notes || getNoteImages(st).length);
+}
+
+function renderNoteImagesPreview() {
+  const wrap = $('modal-notes-images-preview');
+  if (!wrap) return;
+  if (!pendingNoteImages.length) {
+    wrap.innerHTML = '';
+    return;
+  }
+  wrap.innerHTML = pendingNoteImages.map((item, i) => {
+    const url = getNoteImageUrl(item);
+    const cap = typeof item === 'string' ? '' : (item.caption || '');
+    return `
+    <div class="note-img-card" data-idx="${i}">
+      <div class="note-img-item" data-open="${i}" title="اضغط للعرض بالحجم الكامل">
+        <img src="${esc(url)}" alt="صورة ملاحظة ${i + 1}" loading="lazy" />
+        <button type="button" class="note-img-del" data-del="${i}" title="حذف الصورة">×</button>
+      </div>
+      <input type="text" class="note-img-caption" data-cap="${i}" placeholder="تعليق على الصورة..." value="${esc(cap)}" maxlength="300" />
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-del]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      pendingNoteImages.splice(Number(btn.dataset.del), 1);
+      renderNoteImagesPreview();
+    };
+  });
+  wrap.querySelectorAll('[data-open]').forEach(item => {
+    item.onclick = () => {
+      const url = getNoteImageUrl(pendingNoteImages[Number(item.dataset.open)]);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    };
+  });
+  // Caption inputs update state live WITHOUT re-render (so focus is never lost while typing)
+  wrap.querySelectorAll('[data-cap]').forEach(inp => {
+    inp.oninput = () => {
+      const i = Number(inp.dataset.cap);
+      const cur = pendingNoteImages[i];
+      if (typeof cur === 'string') pendingNoteImages[i] = { url: cur, caption: inp.value.slice(0, 300) };
+      else if (cur) cur.caption = inp.value.slice(0, 300);
+    };
+  });
+}
+
+function setNotesUploadStatus(msg, isError = false) {
+  const el = $('notes-image-upload-status');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.style.color = isError ? 'var(--danger)' : 'var(--text-muted)';
+}
+
+async function uploadImageToImgbb(file) {
+  if (!file || !file.type.startsWith('image/')) throw new Error('الملف المختار ليس صورة');
+  if (file.size > 10 * 1024 * 1024) throw new Error('حجم الصورة أكبر من 10MB');
+  const form = new FormData();
+  form.append('image', file);
+  const res = await fetch(IMGBB_UPLOAD_URL, { method: 'POST', body: form });
+  if (!res.ok) throw new Error(`فشل الرفع (HTTP ${res.status})`);
+  const json = await res.json();
+  if (!json?.success || !json?.data?.url) {
+    throw new Error(json?.error?.message || 'فشل الرفع على imgbb');
+  }
+  return json.data.display_url || json.data.url;
+}
+
+async function handleNoteImageFiles(files) {
+  const list = [...(files || [])];
+  if (!list.length) return;
+  const input = $('notes-image-input');
+  setNotesUploadStatus(`جاري رفع ${list.length} صورة على imgbb...`);
+  let ok = 0;
+  for (const f of list) {
+    try {
+      const url = await uploadImageToImgbb(f);
+      pendingNoteImages.push({ url, caption: '' });
+      ok++;
+      renderNoteImagesPreview();
+    } catch (err) {
+      console.error('imgbb upload failed:', err);
+      toast(`فشل رفع ${f.name}: ${err.message}`, 'error');
+    }
+  }
+  if (input) input.value = '';
+  setNotesUploadStatus(ok ? `تم رفع ${ok} صورة بنجاح ✅ (بتتحفظ مع الملاحظة بعد الضغط على حفظ)` : '', ok === 0);
+  initIcons();
+}
+
 function openNotesModal(cid, r) {
   state.activeNoteCid = cid;
   const st = state.L.get(cid) || {};
@@ -1191,10 +1331,22 @@ function openNotesModal(cid, r) {
   const textarea = $('modal-notes-textarea');
   if (textarea) textarea.value = st.notes || '';
 
+  // Images (imgbb) for site-feedback screenshots
+  pendingNoteImages = getNoteImages(st);
+  renderNoteImagesPreview();
+  setNotesUploadStatus('');
+  const urlInput = $('notes-image-url-input');
+  if (urlInput) urlInput.value = '';
+  const fileInput = $('notes-image-input');
+  if (fileInput) fileInput.value = '';
+
   const metaEl = $('modal-notes-meta');
   if (metaEl) {
-    if (st.notes && st.noteBy) {
-      metaEl.textContent = `آخر تعديل بواسطة: ${nm(st.noteBy)} · ${fmt(st.noteAt)}`;
+    if ((st.notes || pendingNoteImages.length) && st.noteBy) {
+      const imgPart = pendingNoteImages.length ? ` · 📷 ${pendingNoteImages.length} صورة` : '';
+      metaEl.textContent = `آخر تعديل بواسطة: ${nm(st.noteBy)} · ${fmt(st.noteAt)}${imgPart}`;
+    } else if (pendingNoteImages.length) {
+      metaEl.textContent = `يوجد ${pendingNoteImages.length} صورة مرفقة — اضغط على أي صورة لعرضها بالحجم الكامل.`;
     } else {
       metaEl.textContent = 'لا توجد ملاحظات مسجلة مسبقاً لهذا العميل.';
     }
@@ -1252,6 +1404,43 @@ function setupNotesModalEvents() {
     };
   });
 
+  const btnAddImg = $('btn-notes-add-image');
+  if (btnAddImg && !btnAddImg.dataset.wired) {
+    btnAddImg.dataset.wired = '1';
+    btnAddImg.onclick = () => $('notes-image-input')?.click();
+  }
+  const fileInput = $('notes-image-input');
+  if (fileInput && !fileInput.dataset.wired) {
+    fileInput.dataset.wired = '1';
+    fileInput.onchange = () => handleNoteImageFiles(fileInput.files);
+  }
+  const btnAddUrl = $('btn-notes-add-image-url');
+  const urlInput = $('notes-image-url-input');
+  const addUrlAction = () => {
+    const v = (urlInput?.value || '').trim();
+    if (!v) {
+      toast('الصق رابط الصورة الأول', 'error');
+      return;
+    }
+    if (!/^https?:\/\/.+\..+/i.test(v)) {
+      toast('رابط الصورة غير صالح', 'error');
+      return;
+    }
+    pendingNoteImages.push({ url: v, caption: '' });
+    if (urlInput) urlInput.value = '';
+    renderNoteImagesPreview();
+    setNotesUploadStatus('تمت إضافة رابط الصورة — اضغط حفظ الملاحظة للحفظ ✅');
+    urlInput?.focus();
+  };
+  if (btnAddUrl && !btnAddUrl.dataset.wired) {
+    btnAddUrl.dataset.wired = '1';
+    btnAddUrl.onclick = addUrlAction;
+  }
+  if (urlInput && !urlInput.dataset.wired) {
+    urlInput.dataset.wired = '1';
+    urlInput.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); addUrlAction(); } };
+  }
+
   const btnSave = $('btn-save-lead-notes');
   if (btnSave) {
     btnSave.onclick = async () => {
@@ -1262,6 +1451,17 @@ function setupNotesModalEvents() {
       }
 
       const text = ($('modal-notes-textarea').value || '').trim();
+      // Collect latest caption inputs (in case of autofill) then normalize to [{url, caption}]
+      document.querySelectorAll('#modal-notes-images-preview [data-cap]').forEach(inp => {
+        const i = Number(inp.dataset.cap);
+        if (pendingNoteImages[i]) {
+          if (typeof pendingNoteImages[i] === 'string') pendingNoteImages[i] = { url: pendingNoteImages[i], caption: inp.value.trim().slice(0, 300) };
+          else pendingNoteImages[i].caption = inp.value.trim().slice(0, 300);
+        }
+      });
+      const noteImages = pendingNoteImages
+        .map(o => typeof o === 'string' ? { url: o.trim(), caption: '' } : { url: (o?.url || '').trim(), caption: String(o?.caption || '').trim().slice(0, 300) })
+        .filter(o => o.url);
       const currentSt = state.L.get(cid) || {};
       const currentUid = state.me?.isOwner ? 'admin' : state.sess;
       const now = Date.now();
@@ -1269,6 +1469,7 @@ function setupNotesModalEvents() {
       const updated = {
         ...currentSt,
         notes: text,
+        noteImages,
         noteBy: currentUid,
         noteAt: now
       };
@@ -1281,14 +1482,16 @@ function setupNotesModalEvents() {
         // update() merges; the local store's set() replaces the doc and would wipe the stage flags
         await db.doc(`leads/${cid}`).update({
           notes: text,
+          noteImages,
           noteBy: currentUid,
           noteAt: now
         });
         const leadName = state.byCid.get(cid)?.[3] || cid;
-        logAudit('lead', text
-          ? `ملاحظة على ${leadName}: ${text.length > 80 ? text.slice(0, 80) + '…' : text}`
+        const imgPart = noteImages.length ? ` + 📷 ${noteImages.length} صورة` : '';
+        logAudit('lead', (text || noteImages.length)
+          ? `ملاحظة على ${leadName}${imgPart}: ${text.length > 80 ? text.slice(0, 80) + '…' : (text || 'صور مرفقة')}`
           : `مسح ملاحظة ${leadName}`, { target: cid });
-        toast('تم حفظ ملاحظات العميل بنجاح', 'success');
+        toast(noteImages.length ? `تم حفظ الملاحظة مع ${noteImages.length} صورة بنجاح` : 'تم حفظ ملاحظات العميل بنجاح', 'success');
       } catch (err) {
         console.error('Error saving notes:', err);
         toast('تم الحفظ في الجلسة المحلية (غير متصل بالسحاب)', 'info');

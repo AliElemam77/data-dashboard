@@ -585,8 +585,12 @@ export class CanvasCustomerTable {
       }
 
       case 'notes': {
-        // Sales Notes Chip
-        const hasNote = !!st.notes;
+        // Sales Notes Chip (text + imgbb images count, supports string[] and [{url,caption}])
+        const _imgs = st.noteImages ?? st.note_images ?? st.images ?? [];
+        const _imgCount = Array.isArray(_imgs)
+          ? _imgs.filter(v => typeof v === 'string' ? !!v.trim() : !!(v && (v.url || '').trim())).length
+          : 0;
+        const hasNote = !!(st.notes || _imgCount);
         const isNoteHover = isHovered && (this.hoveredAction === 'note');
         const pillW = 160;
         const pillH = 26;
@@ -605,7 +609,7 @@ export class CanvasCustomerTable {
           ctx.fillStyle = colors.textMain;
           ctx.direction = 'rtl';
           ctx.textAlign = 'right';
-          const noteSnippet = st.notes;
+          const noteSnippet = (st.notes || '') + (_imgCount ? `${st.notes ? ' ' : ''}📷${_imgCount}` : '') || `📷${_imgCount}`;
           this.renderTruncatedText(ctx, noteSnippet, pillX + pillW - 8, pillY + 17, pillW - 16);
         } else {
           if (isNoteHover) {
