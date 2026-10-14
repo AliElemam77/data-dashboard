@@ -1222,6 +1222,7 @@ function renderNoteImagesPreview() {
         <button type="button" class="note-img-del" data-del="${i}" title="حذف الصورة">×</button>
       </div>
       <input type="text" class="note-img-caption" data-cap="${i}" placeholder="تعليق على الصورة..." value="${esc(cap)}" maxlength="300" />
+      <button type="button" class="note-img-view" data-view="${i}" title="عرض الصورة مع التعليق"><i data-lucide="eye"></i><span>عرض التعليق</span></button>
     </div>`;
   }).join('');
   wrap.querySelectorAll('[data-del]').forEach(btn => {
@@ -1231,12 +1232,25 @@ function renderNoteImagesPreview() {
       renderNoteImagesPreview();
     };
   });
+  const openViewerFor = (i) => {
+    const item = pendingNoteImages[Number(i)];
+    if (!item) return;
+    openNoteImageViewer(
+      getNoteImageUrl(item),
+      typeof item === 'string' ? '' : (item.caption || ''),
+      Number(i)
+    );
+  };
   wrap.querySelectorAll('[data-open]').forEach(item => {
-    item.onclick = () => {
-      const url = getNoteImageUrl(pendingNoteImages[Number(item.dataset.open)]);
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    item.onclick = () => openViewerFor(item.dataset.open);
+  });
+  wrap.querySelectorAll('[data-view]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      openViewerFor(btn.dataset.view);
     };
   });
+  initIcons();
   // Caption inputs update state live WITHOUT re-render (so focus is never lost while typing)
   wrap.querySelectorAll('[data-cap]').forEach(inp => {
     inp.oninput = () => {
@@ -1245,6 +1259,48 @@ function renderNoteImagesPreview() {
       if (typeof cur === 'string') pendingNoteImages[i] = { url: cur, caption: inp.value.slice(0, 300) };
       else if (cur) cur.caption = inp.value.slice(0, 300);
     };
+  });
+}
+
+function openNoteImageViewer(url, caption, idx = -1) {
+  const modal = $('modal-image-viewer');
+  if (!modal || !url) return;
+  const img = $('image-viewer-img');
+  if (img) {
+    img.src = url;
+    img.alt = `صورة ملاحظة ${idx >= 0 ? idx + 1 : ''}`;
+  }
+  const capEl = $('image-viewer-caption');
+  if (capEl) {
+    const cap = (caption || '').trim();
+    capEl.textContent = cap || 'لا يوجد تعليق على هذه الصورة بعد — اكتب التعليق في الخانة تحت الصورة المصغرة ثم اضغط حفظ الملاحظة.';
+    capEl.style.color = cap ? 'var(--text-main)' : 'var(--text-dim)';
+  }
+  const title = $('image-viewer-title');
+  if (title) title.textContent = idx >= 0 ? `الصورة ${idx + 1} من ${pendingNoteImages.length} — التعليق` : 'معاينة الصورة والتعليق';
+  const openBtn = $('btn-image-viewer-open');
+  if (openBtn) openBtn.href = url;
+  modal.classList.add('active');
+  initIcons();
+}
+
+function closeNoteImageViewer() {
+  $('modal-image-viewer')?.classList.remove('active');
+}
+
+function setupImageViewerEvents() {
+  if (setupImageViewerEvents._done) return;
+  setupImageViewerEvents._done = true;
+  const closeBtn = $('btn-close-image-viewer');
+  if (closeBtn) closeBtn.onclick = closeNoteImageViewer;
+  const doneBtn = $('btn-image-viewer-close');
+  if (doneBtn) doneBtn.onclick = closeNoteImageViewer;
+  const overlay = $('modal-image-viewer');
+  if (overlay) overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeNoteImageViewer();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeNoteImageViewer();
   });
 }
 
@@ -1380,6 +1436,8 @@ function openNotesModal(cid, r) {
 function setupNotesModalEvents() {
   const modal = $('modal-lead-notes');
   if (!modal) return;
+
+  setupImageViewerEvents();
 
   const closeModal = () => modal.classList.remove('active');
 

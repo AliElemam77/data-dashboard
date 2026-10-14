@@ -1904,6 +1904,32 @@ body.auth-mode #btn-mobile-menu {
 .note-img-caption::placeholder {
   color: var(--text-dim);
 }
+.note-img-view {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.note-img-view:hover {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.note-img-view svg {
+  width: 13px;
+  height: 13px;
+}
 .note-img-item img {
   width: 100%;
   height: 100%;

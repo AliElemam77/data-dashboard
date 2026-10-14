@@ -533,6 +533,25 @@
         </div>
       </div>
 
+      <!-- Modal: Note Image Viewer (preview + caption) -->
+      <div class="modal-overlay" id="modal-image-viewer">
+        <div class="modal-card" style="max-width: 540px; text-align: center;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+            <h3 style="font-size: 16px; display: flex; align-items: center; gap: 8px; margin: 0;">
+              <i data-lucide="eye"></i>
+              <span id="image-viewer-title">معاينة الصورة والتعليق</span>
+            </h3>
+            <button class="btn-icon" id="btn-close-image-viewer" style="width: 32px; height: 32px;"><i data-lucide="x"></i></button>
+          </div>
+          <img id="image-viewer-img" src="" alt="معاينة الصورة" style="width: 100%; max-height: 55vh; object-fit: contain; border-radius: var(--radius-md); border: 1px solid var(--border-medium); background: var(--bg-canvas);" />
+          <div id="image-viewer-caption" style="margin-top: 10px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-canvas); border: 1px solid var(--border-subtle); font-size: 13.5px; line-height: 1.7; color: var(--text-main); min-height: 20px; text-align: right; white-space: pre-wrap; word-break: break-word;"></div>
+          <div class="modal-actions" style="justify-content: center;">
+            <a id="btn-image-viewer-open" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="text-decoration: none;"><i data-lucide="external-link"></i><span>فتح الأصلية</span></a>
+            <button class="btn-primary" id="btn-image-viewer-close"><i data-lucide="check"></i><span>إغلاق</span></button>
+          </div>
+        </div>
+      </div>
+
       <!-- ================= MODAL: CLIENT PORTAL & TASK DETAILS (تابع) ================= -->
       <div class="modal-overlay" id="modal-client-portal">
         <div class="modal-card" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
